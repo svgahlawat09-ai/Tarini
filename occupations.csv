@@ -3,11 +3,9 @@ Healthcare Worker,"['HSS/Q1015', 'HSS/Q1016', 'HSS/Q1017', 'HSS/Q1018']",False,F
 Retail Worker,"['RET/Q1015', 'RET/Q1016', 'RET/Q1017']",False,False
 Farmer / Agricultural Worker,"['AGR/Q1015', 'AGR/Q1016', 'AGR/Q1017', 'AGR/Q1018']",True,True
 Construction Worker,"['CON/Q1015', 'CON/Q1016', 'CON/Q1017']",True,False
-Beauty & Wellness Professional,"['BWS/Q1015', 'BWS/Q1016', 'BWS/Q1017']",False,True
 IT / Electronics Technician,"['ITE/Q1015', 'ITE/Q1016']",False,True
 Textile / Handicraft Worker,"['TEX/Q1015', 'TEX/Q1016', 'TEX/Q1017']",True,True
 Security / Safety Worker,['SEC/Q1015'],False,False
 Hospitality / Food Service,"['SEC/Q1016', 'HOS/Q1015', 'HOS/Q1016']",False,True
 Automotive Technician,"['AUT/Q1015', 'AUT/Q1016']",False,True
-Green Energy Technician,['ELE/Q1015'],False,False
 Logistics Worker,['LOG/Q1015'],False,False
