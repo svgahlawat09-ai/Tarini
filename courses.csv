@@ -1,25 +1,14 @@
-qp_code,job_role,nsqf_level,sector,duration_hours,eligibility,self_employment_possible,mobility_constraint_safe
-HSS/Q1015,General Duty Assistant,3,Healthcare,400,10th Pass,False,False
-HSS/Q1016,Home Care Assistant,2,Healthcare,200,None,True,True
-HSS/Q1017,Caregiver for Elderly,1,Healthcare,150,None,True,True
-HSS/Q1018,Hospital Waste Management,1,Healthcare,100,None,False,False
-RET/Q1015,Retail Sales Associate,2,Retail,200,None,False,False
-RET/Q1016,Store Manager Assistant,3,Retail,300,10th Pass,False,False
-RET/Q1017,Kirana Store Owner (Self-Employment),4,Retail,400,None,True,True
-AGR/Q1015,Organic Farming Assistant,2,Agriculture,250,None,True,True
-AGR/Q1016,Dairy Farm Assistant,2,Agriculture,200,None,True,True
-AGR/Q1017,Food Processing Operator,3,Agriculture,300,8th Pass,True,True
-AGR/Q1018,Mushroom Cultivation Specialist,3,Agriculture,200,None,True,True
-CON/Q1015,Masonry Assistant,1,Construction,150,None,False,False
-CON/Q1016,Plumbing Assistant,2,Construction,200,None,True,True
-CON/Q1017,Electrician Assistant,2,Construction,250,10th Pass,True,True
-ITE/Q1016,Mobile Phone Repair Technician,3,Electronics,300,10th Pass,True,True
-TEX/Q1015,Tailoring Operator,2,Textile,200,None,True,True
-TEX/Q1016,Embroidery Specialist,3,Textile,300,None,True,True
-TEX/Q1017,Handloom Weaver,2,Textile,250,None,True,True
-SEC/Q1015,Security Guard,1,Security,150,8th Pass,False,False
-SEC/Q1016,Housekeeping Specialist,1,Hospitality,100,None,True,True
-AUT/Q1015,Vehicle Cleaning & Polishing,1,Automotive,100,None,True,True
-AUT/Q1016,Two-Wheeler Repair Assistant,2,Automotive,250,10th Pass,True,True
-LOG/Q1015,Warehouse Assistant,1,Logistics,150,None,False,False
-HCS/Q7301,Traditional Hand Embroiderer (Chikankari & Zari-Zardozi),3,Handicrafts and Carpet Sector Skill Council,600,10th pass,true,false
+qp_code,job_role,nsqf_level,sector,duration_hours,eligibility,self_employment_possible,mobility_safe
+HSS/Q5101,General Duty Assistant,4,Healthcare Sector Skill Council,900,10th Pass,False,False
+HSS/Q5102,Home Care Assistant,3,Healthcare Sector Skill Council,690,8th Pass,True,True
+HSS/Q5103,General Duty Assistant - Advanced,4.5,Healthcare Sector Skill Council,1200,12th Pass,False,False
+RAS/Q0104,Retail Sales Associate,3,Retailers Association Skill Council of India,280,10th Pass,False,False
+AGR/Q1208,Organic Cultivator,3,Agriculture Skill Council of India,200,5th Pass,True,True
+AGR/Q0401,Dairy Farmer,3,Agriculture Skill Council of India,200,8th Pass,True,True
+CON/Q0102,Assistant Mason,3,Construction Skill Development Council of India,400,5th Pass,True,False
+CON/Q0602,Assistant Electrician,3,Construction Skill Development Council of India,400,10th Pass,True,False
+SSC/Q2211,Domestic Data Entry Operator,3,IT-ITeS Sector Skill Council (NASSCOM),400,10th Pass,False,True
+AMH/Q1001,Hand Embroiderer,2,Apparel Made-Ups & Home Furnishing SSC,330,None,True,True
+HCS/Q7301,Traditional Hand Embroiderer (Chikankari & Zardozi),3,Handicrafts and Carpet Sector Skill Council,600,10th Pass,True,True
+SEC/Q0101,Unarmed Security Guard,3,Management & Entrepreneurship and Professional Skills Council,160,8th Pass,False,False
+LOG/Q1201,Warehouse Associate,3,Logistics Sector Skill Council,340,10th Pass,False,False
