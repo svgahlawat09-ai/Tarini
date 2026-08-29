@@ -1,12 +1,16 @@
 user_phrase_variations,mapped_skill,intent
-"['nurse', 'hospital job', 'bimar ki dekhbal', 'doctor helper', 'caregiver']",Healthcare Worker,skill_recommendation
-"['shop job', 'kirana', 'sales', 'customer handling', 'dukandar']",Retail Worker,skill_recommendation
-"['kheti', 'farming', 'organic farming', 'mushroom', 'dairy', 'gaupalan']",Farmer / Agricultural Worker,skill_recommendation
-"['construction', 'mason', 'plumber', 'electrician', 'building work']",Construction Worker,skill_recommendation
-"['computer job', 'mobile repair', 'data entry', 'phone thik']",IT / Electronics Technician,skill_recommendation
-"['kapde', 'tailoring', 'sewing', 'embroidery', 'loom', 'weaving']",Textile / Handicraft Worker,skill_recommendation
-"['security guard', 'watchman', 'safety']",Security / Safety Worker,skill_recommendation
-"['mechanic', 'vehicle repair', 'car wash', 'bike repair']",Automotive Technician,skill_recommendation
-"['warehouse', 'godown', 'logistics', 'driver helper']",Logistics Worker,skill_recommendation
-"['lucknowi chikan stitching','Mastery of traditional stitches (Tepchi, Bakhiya, Murri, Phanda)',
-'heavy wedding dress metallic embroidery','Zari-Zardozi metal wire and bead application','silai','kadhai']"Traditional Hand Embroiderer (Chikankari & Zari-Zardozi),skill_recommendation
+"['bimar ki dekhbal', 'hospital me helper ka kam', 'doctor ka helper', 'mariz patti goli dena']",Healthcare Worker,course_enquiry
+"['ghar me bimar budhe ki seva', 'nurse jaisa kam ghar par', 'bura admi dekhbhal']",Healthcare Worker,course_enquiry
+"['khoon nikalna sikha do', 'blood check karne ka course', 'lab me suee lagana']",Healthcare Worker,skill_learning
+"['kapda silai machine seekhna', 'tailor ka kaam', 'suit silai sikhao', 'ghar baithe silai']",Traditional Handicraft & Textile Worker,course_enquiry
+"['chikankari kadhai', 'lucknowi chikan stitching', 'zardozi hath ka kaam', 'kapde par sitara moti lagana']",Traditional Handicraft & Textile Worker,skill_learning
+"['hath se darri bunna', 'bunkar ka kaam', 'kaleen bunai machine']",Traditional Handicraft & Textile Worker,course_enquiry
+"['bansh ka tokri banana', 'tokri bunna shikho', 'bamboo craft factory']",Traditional Handicraft & Textile Worker,skill_learning
+"['doodh dairy farm chalana', 'gai bhens ka dhanda', 'pashupalan ki jankari', 'dairy kholna']",Allied Agricultural & Livestock Worker,business_startup
+"['murgi palan farm', 'poultry farm kaise shuru kare', 'murgi ka dhanda']",Allied Agricultural & Livestock Worker,business_startup
+"['gobar khad banana', 'organic kheti sikhao', 'bina dawai ki kheti']",Allied Agricultural & Livestock Worker,skill_learning
+"['mushrooms ugana', 'gobar chhatte ki kheti', 'ghar me mashroom kaise ugaye']",Allied Agricultural & Livestock Worker,course_enquiry
+"['madhumakhi palan', 'meethat shehad nikalna', 'bee keeping business']",Allied Agricultural & Livestock Worker,business_startup
+"['it dhowa majdoori kam', 'mason mistri ka kaam', 'ghar banane wala rajmistri']",Basic Infrastructure Construction Worker,skill_learning
+"['nal repairing ka kaam', 'plumber mistri', 'pani ka pipe thik karna']",Basic Infrastructure Construction Worker,course_enquiry
+"['dukaan kholna hai', 'kirana dukan', 'mall me counter par baithna', 'sauda bechna']",Retail Worker,business_startup
