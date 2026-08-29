@@ -19,7 +19,6 @@ TEX/Q1016,Embroidery Specialist,3,Textile,300,None,True,True
 TEX/Q1017,Handloom Weaver,2,Textile,250,None,True,True
 SEC/Q1015,Security Guard,1,Security,150,8th Pass,False,False
 SEC/Q1016,Housekeeping Specialist,1,Hospitality,100,None,True,True
-HOS/Q1016,Food Service Worker,1,Hospitality,100,None,False,False
 AUT/Q1015,Vehicle Cleaning & Polishing,1,Automotive,100,None,True,True
 AUT/Q1016,Two-Wheeler Repair Assistant,2,Automotive,250,10th Pass,True,True
 LOG/Q1015,Warehouse Assistant,1,Logistics,150,None,False,False
