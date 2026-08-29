@@ -6,7 +6,7 @@ from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from groq import Groq
 
-from extraction.extract_skills import extract_skills
+from extraction.extract_skills import extract_skills, generate_llm_response
 from scoring.recommend import score_all_occupations
 
 load_dotenv()
@@ -45,28 +45,49 @@ def root():
 
 
 @app.post("/api/transcribe")
-async def transcribe(audio: UploadFile = File(...)):
+async def transcribe(audio: UploadFile = File(...), language: str | None = None):
     try:
         if groq_client:
             audio_bytes = await audio.read()
             filename = audio.filename or "speech.mp3"
-            transcription = groq_client.audio.transcriptions.create(
-                file=(filename, audio_bytes),
-                model="whisper-large-v3-turbo",
-            )
-            return {"text": transcription.text, "language": "hi"}
+            
+            kwargs = {
+                "file": (filename, audio_bytes),
+                "model": "whisper-large-v3-turbo",
+                "response_format": "verbose_json",
+            }
+            if language:
+                kwargs["language"] = language
+
+            transcription = groq_client.audio.transcriptions.create(**kwargs)
+            
+            text = getattr(transcription, "text", "")
+            detected_lang = getattr(transcription, "language", language or "hi")
+            return {
+                "transcribed_text": text,
+                "detected_language": detected_lang,
+                "text": text,
+                "language": detected_lang,
+            }
     except Exception as e:
         logger.warning(f"Groq Whisper transcription error: {e}")
 
     # Fallback response for dev/stub testing or missing key
-    return {"text": "dummy transcribed text", "language": "hi"}
+    return {
+        "transcribed_text": "dummy transcribed text",
+        "detected_language": language or "hi",
+        "text": "dummy transcribed text",
+        "language": language or "hi",
+    }
 
 
 @app.post("/api/analyze")
 async def analyze(payload: dict):
-    text = payload.get("text", "")
+    text = payload.get("text", "") or payload.get("transcribed_text", "")
+    detected_lang = payload.get("detected_language", payload.get("language", "hi"))
+
     try:
-        profile = extract_skills(text)
+        profile = extract_skills(text, detected_language=detected_lang)
     except Exception as e:
         logger.error(f"extract_skills exception: {e}")
         profile = {"skills": [], "experience_years": None, "sector_guess": "unclear"}
@@ -78,7 +99,19 @@ async def analyze(payload: dict):
         ranked = []
 
     top = ranked[0] if ranked else None
+    top_title = top["title"] if top else "Custom Apparel Maker"
+
+    try:
+        llm_response = generate_llm_response(text, profile, top_title, detected_language=detected_lang)
+    except Exception as e:
+        logger.error(f"generate_llm_response exception: {e}")
+        llm_response = f"We recommend {top_title} based on your skills."
+
     return {
+        "transcribed_text": text,
+        "detected_language": detected_lang,
+        "llm_response_text": llm_response,
+        "audio_reply_url": None,
         "profile": profile,
         "matches": ranked[:3],
         "top_occupation": top["occupation_id"] if top else None,
