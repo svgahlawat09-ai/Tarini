@@ -1,6 +1,0 @@
-occupation_id,title,sector,skills_required,nsqf_level
-OCC01,Boutique/Custom Apparel Maker,Apparel,"tailoring,embroidery,pattern making",4
-OCC02,Hand Embroiderer,Apparel,"embroidery,hand stitching,designing",3
-OCC03,Garment Quality Inspector,Apparel,"quality check,garment inspection,tailoring",4
-OCC04,Self Employed Tailor,Apparel,"tailoring,cutting,measurements,pattern making",4
-OCC05,Craft & Handicraft Maker,Handicrafts,"embroidery,handicraft,bead work",3
