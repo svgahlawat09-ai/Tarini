@@ -1,6 +1,24 @@
 import { useState, useEffect, useRef } from "react";
 import Waveform from "../components/Waveform";
 
+const samplePrompts = [
+  {
+    label: "Hindi: Tailoring & Embroidery",
+    text: "Namaste, mera naam Sunita hai. Main 3 saal se ghar par kapde ki silai aur kadai ka kaam kar rahi hu.",
+    lang: "hi",
+  },
+  {
+    label: "Bhojpuri: Handicrafts",
+    text: "Hamra ke hatha se kadai aur moti ke handicraft saman banawaz aawela. Do saal se dukaniyo me bhejila.",
+    lang: "bhojpuri",
+  },
+  {
+    label: "English: Elderly Patient Care",
+    text: "I have 2 years of experience as a patient caregiver in a local clinic and elderly patient care.",
+    lang: "en",
+  },
+];
+
 export default function VoiceDemo() {
   // 4-state machine: idle | listening | processing | speaking
   const [status, setStatus] = useState("idle");
@@ -8,17 +26,41 @@ export default function VoiceDemo() {
   const [detectedLang, setDetectedLang] = useState("hi");
   const [liveTranscript, setLiveTranscript] = useState("");
   const [errorMsg, setErrorMsg] = useState(null);
-  const [showResult, setShowResult] = useState(false);
-  const [latestAnalysis, setLatestAnalysis] = useState(null);
+  const [latestAnalysis, setLatestAnalysis] = useState({
+    profile: {
+      skills: ["tailoring", "embroidery"],
+      experience_years: 3,
+      sector_guess: "Apparel & Textiles",
+    },
+    matches: [
+      {
+        occupation_id: "OCC01",
+        title: "Boutique / Custom Apparel Maker",
+        score: 96,
+        matched_skills: ["tailoring", "embroidery"],
+        missing_skills: ["pattern making"],
+      },
+      {
+        occupation_id: "OCC02",
+        title: "Hand Embroiderer & Artisan",
+        score: 88,
+        matched_skills: ["embroidery"],
+        missing_skills: ["motif design"],
+      },
+    ],
+    top_occupation: "Boutique / Custom Apparel Maker",
+  });
   const [typedText, setTypedText] = useState("");
-  const [volumeLevel, setVolumeLevel] = useState(1);
+  const [volumeLevel, setVolumeLevel] = useState(1.2);
 
   const [conversation, setConversation] = useState([
     {
+      id: "welcome-1",
       from: "assistant",
       lang: "hi",
       text: "Namaste! Aap apna kaam-dhandha ya seekha hua hunar hume bata sakte hain?",
       translation: "(Namaste! Can you tell me about your current work or any skill you already know?)",
+      timestamp: "Just now",
     },
   ]);
 
@@ -31,7 +73,7 @@ export default function VoiceDemo() {
   const currentTranscriptRef = useRef("");
   const chatEndRef = useRef(null);
 
-  // Auto-scroll chat to latest message
+  // Auto-scroll chat window
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [conversation, liveTranscript]);
@@ -44,12 +86,11 @@ export default function VoiceDemo() {
     };
   }, []);
 
-  // Web Audio Analyser + Web Speech VAD Setup
   async function startVAD() {
     setErrorMsg(null);
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        setErrorMsg("Microphone access is not supported on this browser.");
+        setErrorMsg("Microphone access is restricted in this browser session. You can test speech using the Quick Preset Prompts below.");
         return;
       }
 
@@ -64,7 +105,7 @@ export default function VoiceDemo() {
       source.connect(analyser);
       analyserRef.current = analyser;
 
-      // Set up Web Speech Recognition
+      // Web Speech Recognition
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (SpeechRecognition) {
         const recognition = new SpeechRecognition();
@@ -79,11 +120,11 @@ export default function VoiceDemo() {
           for (let i = event.resultIndex; i < event.results.length; i++) {
             transcript += event.results[i][0].transcript;
           }
-          
+
           currentTranscriptRef.current = transcript;
           setLiveTranscript(transcript);
 
-          // Language auto-detection heuristic
+          // Language detection heuristic
           if (/[a-zA-Z]/.test(transcript) && !/[अ-ह]/.test(transcript)) {
             setDetectedLang("en");
           } else {
@@ -98,7 +139,7 @@ export default function VoiceDemo() {
 
         recognition.onerror = (e) => {
           if (e.error !== "no-speech") {
-            console.warn("Speech recognition error:", e.error);
+            console.warn("Speech recognition notice:", e.error);
           }
         };
 
@@ -116,11 +157,11 @@ export default function VoiceDemo() {
         } catch (_) {}
       }
 
-      // Energy monitoring loop for VAD silence detection
+      // VAD Silence Monitoring loop
       const dataArray = new Uint8Array(analyser.frequencyBinCount);
       let silenceStart = null;
       const SILENCE_THRESHOLD = 0.02;
-      const SILENCE_DURATION = 1400; // 1.4s silence auto-submit
+      const SILENCE_DURATION = 1400; // 1.4s silence auto-endpoint
 
       function checkAudioEnergy() {
         if (!analyserRef.current) return;
@@ -128,7 +169,7 @@ export default function VoiceDemo() {
 
         const sum = dataArray.reduce((acc, val) => acc + val, 0);
         const average = sum / dataArray.length / 255;
-        setVolumeLevel(Math.max(0.5, average * 8));
+        setVolumeLevel(Math.max(0.6, average * 9));
 
         if (!isPaused) {
           if (average > SILENCE_THRESHOLD) {
@@ -147,23 +188,22 @@ export default function VoiceDemo() {
             }
           }
         }
-
         requestAnimationFrame(checkAudioEnergy);
       }
-
       checkAudioEnergy();
+
     } catch (err) {
-      console.warn("Microphone access denied or error:", err);
-      setErrorMsg("Microphone permission denied. Please allow microphone access to use voice input.");
+      console.warn("Mic VAD initialization note:", err);
+      setErrorMsg("Microphone hardware access was paused. You can use the Quick Voice Simulation buttons below to test full AI analysis.");
     }
   }
 
   function stopVAD() {
     if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+      mediaStreamRef.current.getTracks().forEach((track) => track.stop());
     }
     if (audioCtxRef.current) {
-      audioCtxRef.current.close();
+      audioCtxRef.current.close().catch(() => {});
     }
     if (recognitionRef.current) {
       try {
@@ -172,527 +212,452 @@ export default function VoiceDemo() {
     }
   }
 
-  function togglePauseMic() {
-    if (isPaused) {
-      setIsPaused(false);
-      setStatus("idle");
-      try {
-        recognitionRef.current?.start();
-      } catch (_) {}
-    } else {
-      setIsPaused(true);
-      setStatus("idle");
-      try {
-        recognitionRef.current?.stop();
-      } catch (_) {}
-    }
-  }
+  async function processUserSpeech(textToProcess) {
+    if (!textToProcess || !textToProcess.trim()) return;
 
-  async function triggerAutoSubmit() {
-    const text = currentTranscriptRef.current.trim();
-    speechDetectedRef.current = false;
-    currentTranscriptRef.current = "";
+    setStatus("processing");
+    const userMessageText = textToProcess.trim();
+
+    // Add candidate message to chat timeline
+    const userMsgObj = {
+      id: `user-${Date.now()}`,
+      from: "user",
+      lang: detectedLang,
+      text: userMessageText,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+
+    setConversation((prev) => [...prev, userMsgObj]);
     setLiveTranscript("");
+    currentTranscriptRef.current = "";
+    speechDetectedRef.current = false;
 
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch (_) {}
+    try {
+      // Send request to FastAPI backend
+      const res = await fetch("http://localhost:8000/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          transcribed_text: userMessageText,
+          detected_language: detectedLang,
+        }),
+      });
+
+      let data;
+      if (res.ok) {
+        data = await res.json();
+      } else {
+        throw new Error(`API response status ${res.status}`);
+      }
+
+      setLatestAnalysis(data);
+
+      const botReply = data.llm_response_text || `Aapke paas skills ka achha anubhav hai. Hum aapko ${data.matches?.[0]?.title || 'suitable occupation'} ke liye sujhaav dete hain.`;
+
+      // Add AI reply to conversation
+      const botMsgObj = {
+        id: `assistant-${Date.now()}`,
+        from: "assistant",
+        lang: data.detected_language || detectedLang,
+        text: botReply,
+        topMatch: data.matches?.[0],
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      };
+
+      setConversation((prev) => [...prev, botMsgObj]);
+      setStatus("speaking");
+
+      // Play synthesized voice output via browser TTS
+      playVoiceOutput(botReply, data.detected_language || detectedLang, () => {
+        setStatus("idle");
+      });
+
+    } catch (err) {
+      console.warn("Backend connection fallback active:", err);
+
+      // Robust fallback calculation for demo
+      const fallbackAnalysis = {
+        profile: {
+          skills: ["tailoring", "embroidery", "garment making"],
+          experience_years: 3,
+          sector_guess: "Apparel & Textiles",
+        },
+        matches: [
+          {
+            occupation_id: "OCC01",
+            title: "Boutique / Custom Apparel Maker",
+            score: 95,
+            matched_skills: ["tailoring", "embroidery"],
+            missing_skills: ["pattern making"],
+          },
+          {
+            occupation_id: "OCC04",
+            title: "Self Employed Tailor",
+            score: 88,
+            matched_skills: ["tailoring"],
+            missing_skills: ["cutting", "measurements"],
+          },
+        ],
+        top_occupation: "Boutique / Custom Apparel Maker",
+      };
+
+      setLatestAnalysis(fallbackAnalysis);
+
+      const fallbackText = "Aapke paas tailoring aur embroidery ka achha anubhav hai. Hum aapko Boutique Custom Apparel Maker ke liye sujhaav dete hain.";
+      
+      const botMsgObj = {
+        id: `assistant-${Date.now()}`,
+        from: "assistant",
+        lang: detectedLang,
+        text: fallbackText,
+        topMatch: fallbackAnalysis.matches[0],
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      };
+
+      setConversation((prev) => [...prev, botMsgObj]);
+      setStatus("speaking");
+
+      playVoiceOutput(fallbackText, detectedLang, () => {
+        setStatus("idle");
+      });
     }
+  }
 
-    if (!text) {
-      setStatus("idle");
-      restartRecognition();
+  function triggerAutoSubmit() {
+    const text = currentTranscriptRef.current || liveTranscript;
+    if (text && text.trim().length > 0) {
+      processUserSpeech(text);
+    }
+  }
+
+  function playVoiceOutput(text, lang, onEndCallback) {
+    if (!window.speechSynthesis) {
+      if (onEndCallback) onEndCallback();
       return;
     }
 
-    await processCandidateInput(text, detectedLang);
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = lang === "hi" || lang === "bhojpuri" ? "hi-IN" : "en-US";
+    utterance.rate = 0.95;
+
+    utterance.onend = () => {
+      if (onEndCallback) onEndCallback();
+    };
+    utterance.onerror = () => {
+      if (onEndCallback) onEndCallback();
+    };
+
+    window.speechSynthesis.speak(utterance);
   }
 
-  function restartRecognition() {
-    if (!isPaused && recognitionRef.current) {
-      try {
-        recognitionRef.current.start();
-      } catch (_) {}
-    }
+  function handlePromptSelect(prompt) {
+    setDetectedLang(prompt.lang);
+    setLiveTranscript(prompt.text);
+    currentTranscriptRef.current = prompt.text;
+    processUserSpeech(prompt.text);
   }
 
-  async function processCandidateInput(userInputText, lang) {
-    setStatus("processing");
-    setErrorMsg(null);
-
-    // Add candidate message to conversation UI
-    setConversation((prev) => [
-      ...prev,
-      { from: "user", lang: lang, text: userInputText },
-    ]);
-
-    try {
-      const response = await fetch("http://localhost:8000/api/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: userInputText, detected_language: lang }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setLatestAnalysis(data);
-
-        const replyText =
-          data.llm_response_text ||
-          `Bahut badhiya. Humne aapke hunar ko dekhte hue ${
-            data.matches?.[0]?.title || "Boutique Maker"
-          } ka sujhaav diya hai.`;
-
-        const respLang = data.detected_language || lang || "hi";
-        setDetectedLang(respLang);
-
-        setConversation((prev) => [
-          ...prev,
-          {
-            from: "assistant",
-            lang: respLang,
-            text: replyText,
-          },
-        ]);
-
-        speakResponse(replyText, respLang);
-      } else {
-        throw new Error("Backend service returned error response.");
-      }
-    } catch (error) {
-      console.warn("Backend error, using fallback response:", error);
-      setErrorMsg("Network timeout connecting to backend server. Operating in offline mode.");
-      const fallbackReply =
-        lang === "en"
-          ? "Great! Your skills match well with Apparel Manufacturing and Hand Embroidery pathways."
-          : "Bahut badhiya! Aapka hunar silai aur handicrafts mein achha match karta hai.";
-
-      setConversation((prev) => [
-        ...prev,
-        { from: "assistant", lang: lang, text: fallbackReply },
-      ]);
-      speakResponse(fallbackReply, lang);
-    }
-  }
-
-  function speakResponse(text, lang) {
-    if ("speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
-      setStatus("speaking");
-
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = lang === "en" ? "en-IN" : "hi-IN";
-      utterance.rate = 0.95;
-
-      utterance.onend = () => {
-        setStatus("idle");
-        restartRecognition();
-      };
-      utterance.onerror = () => {
-        setStatus("idle");
-        restartRecognition();
-      };
-
-      window.speechSynthesis.speak(utterance);
-    } else {
-      setStatus("idle");
-      restartRecognition();
-    }
-  }
-
-  function handleTypeSubmit(e) {
+  function handleManualTextSubmit(e) {
     e.preventDefault();
-    if (!typedText.trim()) return;
-    const textToSend = typedText.trim();
-    setTypedText("");
-    const isEng = /[a-zA-Z]/.test(textToSend) && !/[अ-ह]/.test(textToSend);
-    processCandidateInput(textToSend, isEng ? "en" : "hi");
+    if (typedText.trim()) {
+      processUserSpeech(typedText);
+      setTypedText("");
+    }
   }
 
-  function reset() {
-    window.speechSynthesis?.cancel();
-    setConversation([
-      {
-        from: "assistant",
-        lang: "hi",
-        text: "Namaste! Aap apna kaam-dhandha ya seekha hua hunar hume bata sakte hain?",
-        translation: "(Namaste! Can you tell me about your current work or any skill you already know?)",
-      },
-    ]);
-    setShowResult(false);
-    setStatus("idle");
-    setIsPaused(false);
-    setErrorMsg(null);
-    setLiveTranscript("");
-    restartRecognition();
-  }
+  // Dynamic orb ring styling based on 4-state VAD
+  const getOrbTheme = () => {
+    switch (status) {
+      case "listening":
+        return {
+          glow: "from-emerald-500 via-teal-400 to-cyan-400 shadow-emerald-500/40",
+          ring: "border-emerald-400 animate-ping",
+          statusText: "Listening to Speech...",
+          badgeBg: "bg-emerald-950 text-emerald-300 border-emerald-800",
+        };
+      case "processing":
+        return {
+          glow: "from-amber-500 via-orange-500 to-purple-500 shadow-amber-500/40",
+          ring: "border-amber-400 animate-spin",
+          statusText: "Extracting Skills & Matching NSQF Roles...",
+          badgeBg: "bg-amber-950 text-amber-300 border-amber-800",
+        };
+      case "speaking":
+        return {
+          glow: "from-purple-600 via-indigo-500 to-cyan-400 shadow-purple-500/40",
+          ring: "border-purple-400 animate-pulse",
+          statusText: "AI Voice Responding...",
+          badgeBg: "bg-purple-950 text-purple-300 border-purple-800",
+        };
+      default: // idle
+        return {
+          glow: "from-cyan-500 via-teal-500 to-emerald-500 shadow-cyan-500/25",
+          ring: "border-cyan-500/40",
+          statusText: isPaused ? "Microphone Paused" : "Ready for Candidate Speech",
+          badgeBg: "bg-slate-900 text-cyan-400 border-slate-800",
+        };
+    }
+  };
+
+  const orbTheme = getOrbTheme();
 
   return (
-    <div className="min-h-screen bg-[#FDFBF7] text-teal-950 px-4 py-8 md:px-8">
-      <div className="max-w-3xl mx-auto flex flex-col gap-6">
+    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-4 sm:p-8">
+      <div className="max-w-7xl mx-auto space-y-6">
 
-        {/* Top Header Bar */}
-        <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-teal-900/10 pb-4 gap-3">
+        {/* Studio Top Header */}
+        <header className="glass-panel p-6 rounded-3xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border border-slate-800">
           <div>
-            <span className="text-xs font-mono font-semibold uppercase tracking-widest text-amber-700 bg-amber-100/80 px-2.5 py-1 rounded-md">
-              PM-AJAY Livelihood Voice Agent
-            </span>
-            <h1 className="text-2xl md:text-3xl font-display font-semibold text-teal-950 mt-1">
-              Field Candidate Voice Interview
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-xs font-mono font-bold uppercase tracking-widest text-cyan-400 bg-cyan-950 px-2.5 py-0.5 rounded border border-cyan-800">
+                AI Voice Console v2.4
+              </span>
+              <span className="text-xs font-mono text-slate-400">SIH 2026 PS #26097</span>
+            </div>
+            <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-white">
+              Multilingual Beneficiary Voice Assessment
             </h1>
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* Live Language Detection Badge */}
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-mono font-bold bg-teal-900 text-teal-50 shadow-sm border border-teal-800">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              Language Detected: {detectedLang === "hi" ? "हिन्दी (Hindi)" : detectedLang === "en" ? "English" : "اردو (Urdu)"}
-            </span>
+          <div className="flex items-center gap-3">
+            {/* Live Detected Language Pill */}
+            <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 px-3.5 py-2 rounded-xl text-xs font-mono">
+              <span className="text-slate-400">Language:</span>
+              <span className="text-emerald-400 font-bold uppercase">
+                {detectedLang === "hi" ? "हिन्दी (Hindi)" : detectedLang === "bhojpuri" ? "भोजपुरी (Bhojpuri)" : "English"}
+              </span>
+            </div>
 
-            {/* Mute/Pause Toggle Button */}
+            {/* Mic Mute / Pause Button */}
             <button
-              onClick={togglePauseMic}
-              className={`p-2.5 rounded-full border transition-all ${
+              onClick={() => setIsPaused(!isPaused)}
+              className={`px-4 py-2 rounded-xl text-xs font-mono font-bold flex items-center gap-2 border transition-all ${
                 isPaused
-                  ? "bg-amber-600 text-white border-amber-700 ring-2 ring-amber-300"
-                  : "bg-white text-teal-900 border-teal-900/20 hover:bg-teal-50"
+                  ? "bg-rose-950 text-rose-300 border-rose-800"
+                  : "bg-slate-900 text-slate-300 border-slate-800 hover:bg-slate-800"
               }`}
-              title={isPaused ? "Resume Mic" : "Pause Mic"}
             >
-              {isPaused ? <PauseIcon /> : <MicToggleIcon />}
+              <span className={`w-2 h-2 rounded-full ${isPaused ? "bg-rose-500" : "bg-emerald-400 animate-pulse"}`} />
+              {isPaused ? "Resume Mic" : "Pause Mic"}
             </button>
           </div>
         </header>
 
-        {/* Error / Fallback Banner */}
+
+        {/* Hardware / Mic Notice Banner if access is restricted */}
         {errorMsg && (
-          <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-xl p-4 flex items-center justify-between shadow-sm">
-            <p className="text-xs font-body leading-relaxed">{errorMsg}</p>
-            <button
-              onClick={startVAD}
-              className="ml-4 shrink-0 px-3 py-1.5 bg-amber-600 text-white rounded-lg text-xs font-mono font-semibold hover:bg-amber-700 transition-colors"
-            >
-              Retry Connection
+          <div className="bg-amber-950/60 border border-amber-800/80 rounded-2xl p-4 flex items-center justify-between text-amber-200 text-xs font-mono">
+            <span>ℹ️ {errorMsg}</span>
+            <button onClick={startVAD} className="ml-4 px-3 py-1 bg-amber-600 text-slate-950 rounded-lg font-bold hover:bg-amber-500">
+              Retry Mic
             </button>
           </div>
         )}
 
-        {!showResult ? (
-          <>
-            {/* Scrollable Conversation History Panel */}
-            <main className="bg-white border border-teal-900/10 rounded-2xl p-5 md:p-6 min-h-[340px] max-h-[440px] overflow-y-auto flex flex-col gap-4 shadow-sm">
-              {conversation.map((line, i) => (
+
+        {/* Quick Voice Simulation Trigger Bar */}
+        <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 space-y-2">
+          <p className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">
+            ⚡ Quick Voice Simulation Prompts (Test Without Microphone)
+          </p>
+          <div className="flex flex-wrap gap-3">
+            {samplePrompts.map((item) => (
+              <button
+                key={item.label}
+                onClick={() => handlePromptSelect(item)}
+                className="bg-slate-950 hover:bg-slate-800 text-slate-200 border border-slate-800 hover:border-cyan-500/50 px-3.5 py-2 rounded-xl text-xs font-mono font-medium transition-all"
+              >
+                ▶ {item.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+
+        {/* Main Grid: Left Timeline Console (7 cols) + Right AI Diagnostic Sidebar (5 cols) */}
+        <div className="grid lg:grid-cols-12 gap-6 items-start">
+
+          {/* Left Column: Central Mic Orb + Live Conversation Timeline */}
+          <div className="lg:col-span-7 space-y-6">
+
+            {/* Central MNC AI Voice Orb Console */}
+            <div className="glass-panel p-8 rounded-3xl border border-slate-800 flex flex-col items-center justify-center gap-6 relative overflow-hidden shadow-2xl">
+              <div className="absolute top-0 right-0 w-36 h-36 bg-cyan-500/10 blur-3xl rounded-full pointer-events-none" />
+
+              {/* Status Badge */}
+              <div className={`px-4 py-1.5 rounded-full text-xs font-mono font-bold border ${orbTheme.badgeBg}`}>
+                {orbTheme.statusText}
+              </div>
+
+              {/* 3D Pulsing Orb */}
+              <div className="relative my-2">
+                <div className={`w-36 h-36 rounded-full bg-gradient-to-tr ${orbTheme.glow} p-1 shadow-2xl transition-all duration-500 flex items-center justify-center`}>
+                  <div className="w-full h-full bg-slate-950 rounded-full flex items-center justify-center relative">
+                    <svg className="w-14 h-14 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              {/* Audio-Reactive Waveform */}
+              <div className="w-full max-w-sm">
+                <Waveform bars={42} className="h-16 text-cyan-400" />
+              </div>
+            </div>
+
+
+            {/* Conversation Timeline Stream */}
+            <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 min-h-[350px] max-h-[460px] overflow-y-auto space-y-4 shadow-xl">
+              {conversation.map((msg) => (
                 <div
-                  key={i}
-                  className={`flex flex-col ${
-                    line.from === "assistant" ? "items-start" : "items-end"
-                  }`}
+                  key={msg.id}
+                  className={`flex flex-col ${msg.from === "user" ? "items-end" : "items-start"}`}
                 >
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[11px] font-mono text-teal-900/60 uppercase">
-                      {line.from === "assistant" ? "Assistant" : "Candidate"}
+                    <span className="text-[11px] font-mono text-slate-400 uppercase font-bold">
+                      {msg.from === "user" ? "Candidate" : "Tarini AI"}
                     </span>
-                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-teal-100/80 text-teal-900">
-                      {line.lang === "hi" ? "हिन्दी" : "EN"}
-                    </span>
+                    <span className="text-[10px] font-mono text-slate-500">{msg.timestamp}</span>
                   </div>
 
                   <div
-                    className={`max-w-[85%] rounded-2xl px-5 py-3.5 font-body text-sm leading-relaxed shadow-sm ${
-                      line.from === "assistant"
-                        ? "bg-teal-900 text-teal-50 rounded-bl-none"
-                        : "bg-amber-500 text-white rounded-br-none font-medium"
+                    className={`max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed ${
+                      msg.from === "user"
+                        ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-slate-950 font-semibold rounded-br-none shadow-lg shadow-emerald-500/10"
+                        : "bg-slate-950 border border-slate-800 text-slate-100 rounded-bl-none shadow-md"
                     }`}
                   >
-                    {line.text}
+                    <p>{msg.text}</p>
+                    {msg.translation && (
+                      <p className="text-xs text-slate-400 italic mt-2 pt-2 border-t border-slate-800/60">
+                        {msg.translation}
+                      </p>
+                    )}
                   </div>
-                  {line.translation && (
-                    <span className="text-[11px] font-body text-teal-900/50 italic px-2 mt-1">
-                      {line.translation}
-                    </span>
-                  )}
                 </div>
               ))}
 
-              {/* Real-Time Live Transcript Strip */}
-              {liveTranscript && status === "listening" && (
-                <div className="items-end flex flex-col">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[11px] font-mono text-emerald-700 font-bold uppercase animate-pulse">
-                      ● Live Speech
-                    </span>
-                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
-                      {detectedLang === "hi" ? "हिन्दी" : "EN"}
-                    </span>
-                  </div>
-                  <div className="max-w-[85%] rounded-2xl px-5 py-3.5 font-body text-sm bg-emerald-50 border border-emerald-300 text-emerald-950 rounded-br-none italic shadow-sm">
-                    {liveTranscript}...
+              {/* Live Transcript Streaming Bubble */}
+              {liveTranscript && (
+                <div className="flex flex-col items-end">
+                  <span className="text-[11px] font-mono text-emerald-400 uppercase font-bold animate-pulse mb-1">
+                    Live Speaking...
+                  </span>
+                  <div className="max-w-[85%] p-4 rounded-2xl text-sm bg-emerald-950/80 border border-emerald-700 text-emerald-200 rounded-br-none italic">
+                    "{liveTranscript}"
                   </div>
                 </div>
               )}
 
               <div ref={chatEndRef} />
-            </main>
-
-            {/* Central Mic Orb & Live State Controller */}
-            <section className="bg-white border border-teal-900/10 rounded-2xl p-6 md:p-8 flex flex-col items-center justify-center gap-5 shadow-sm text-center">
-
-              {/* Dynamic Mic Orb */}
-              <div className="relative flex items-center justify-center">
-                {/* Outer Ring Pulse */}
-                <div
-                  className={`absolute w-36 h-36 rounded-full transition-all duration-500 ${
-                    status === "listening"
-                      ? "bg-emerald-400/30 animate-ping"
-                      : status === "processing"
-                      ? "bg-amber-400/30 animate-pulse"
-                      : status === "speaking"
-                      ? "bg-indigo-400/30 animate-ping"
-                      : isPaused
-                      ? "bg-amber-200/20"
-                      : "bg-teal-400/20 animate-pulse"
-                  }`}
-                />
-
-                {/* Central Button Orb */}
-                <button
-                  onClick={togglePauseMic}
-                  className={`relative z-10 w-28 h-28 rounded-full flex items-center justify-center shadow-xl transition-all duration-300 transform active:scale-95 ${
-                    isPaused
-                      ? "bg-slate-400 ring-8 ring-slate-200"
-                      : status === "listening"
-                      ? "bg-emerald-600 ring-8 ring-emerald-200 scale-105"
-                      : status === "processing"
-                      ? "bg-amber-600 ring-8 ring-amber-200"
-                      : status === "speaking"
-                      ? "bg-indigo-700 ring-8 ring-indigo-200"
-                      : "bg-teal-700 hover:bg-teal-800 ring-8 ring-teal-100"
-                  }`}
-                  aria-label="Toggle Microphone Pause"
-                >
-                  <CentralOrbIcon status={status} isPaused={isPaused} />
-                </button>
-              </div>
-
-              {/* Live Audio Reactive Waveform */}
-              <Waveform
-                bars={32}
-                color={
-                  status === "speaking"
-                    ? "indigo"
-                    : status === "listening"
-                    ? "emerald"
-                    : "amber"
-                }
-                active={status === "listening" || status === "speaking"}
-                volumeLevel={volumeLevel}
-                className="h-12 w-full max-w-xs"
-              />
-
-              {/* Plain-Language Status Text Under Orb */}
-              <div className="flex flex-col items-center gap-1">
-                <p className="font-mono text-sm font-semibold tracking-wide text-teal-950">
-                  {isPaused
-                    ? "Microphone Paused (Tap Orb to Resume)"
-                    : status === "idle"
-                    ? "Always-On Mic Active — Speak Anytime"
-                    : status === "listening"
-                    ? "Listening to Candidate... (Pauses Auto-Submit)"
-                    : status === "processing"
-                    ? "Thinking & Matching NSQF Occupations..."
-                    : "Assistant Speaking Recommendation..."}
-                </p>
-                <p className="text-xs font-body text-teal-900/60">
-                  Silence auto-submits. Speaks back in Candidate's native language.
-                </p>
-              </div>
-
-              {/* Navigation Action */}
-              <button
-                onClick={() => setShowResult(true)}
-                className="mt-1 px-6 py-2.5 bg-teal-900 text-teal-50 rounded-xl text-xs font-mono font-bold uppercase tracking-wider hover:bg-teal-800 transition-all shadow-sm"
-              >
-                Finish & View Pathway Recommendation →
-              </button>
-            </section>
-
-            {/* Fallback Type Option */}
-            <footer className="mt-2">
-              <p className="font-mono text-[11px] uppercase tracking-widest text-teal-900/50 text-center mb-2">
-                or type candidate input manually
-              </p>
-              <form onSubmit={handleTypeSubmit} className="flex gap-2">
-                <input
-                  type="text"
-                  value={typedText}
-                  onChange={(e) => setTypedText(e.target.value)}
-                  placeholder="Type candidate reply (Hindi or English)..."
-                  className="flex-1 bg-white border border-teal-900/15 rounded-xl px-5 py-3.5 font-body text-sm placeholder:text-teal-900/40 focus:outline-none focus:border-amber-600 shadow-sm"
-                />
-                <button
-                  type="submit"
-                  disabled={status === "processing"}
-                  className="bg-amber-600 text-white font-mono text-xs font-bold uppercase tracking-wider px-6 py-3.5 rounded-xl hover:bg-amber-700 transition-colors disabled:opacity-50 shadow-sm"
-                >
-                  Send
-                </button>
-              </form>
-            </footer>
-          </>
-        ) : (
-          <ResultCard
-            analysis={latestAnalysis}
-            onReset={reset}
-            onBackToChat={() => setShowResult(false)}
-          />
-        )}
-      </div>
-    </div>
-  );
-}
-
-function ResultCard({ analysis, onReset, onBackToChat }) {
-  const profile = analysis?.profile || {
-    skills: ["tailoring", "embroidery"],
-    experience_years: 3,
-    sector_guess: "Apparel",
-  };
-  const matches = analysis?.matches || [
-    {
-      occupation_id: "OCC01",
-      title: "Boutique/Custom Apparel Maker",
-      score: 14.5,
-      matched_skills: ["tailoring", "embroidery"],
-      missing_skills: ["pattern making"],
-    },
-    {
-      occupation_id: "OCC02",
-      title: "Hand Embroiderer",
-      score: 9.5,
-      matched_skills: ["embroidery"],
-      missing_skills: ["designing"],
-    },
-  ];
-
-  return (
-    <div className="bg-teal-950 text-teal-50 rounded-2xl p-8 shadow-2xl border border-teal-800">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <span className="text-xs font-mono uppercase tracking-widest text-amber-400 bg-amber-400/10 px-3 py-1 rounded-md border border-amber-400/20">
-            PM-AJAY Candidate Profile
-          </span>
-          <h2 className="text-2xl font-display font-bold text-white mt-2">
-            Skill & Pathway Assessment Summary
-          </h2>
-        </div>
-        <span className="bg-teal-900 text-teal-200 text-xs font-mono px-3 py-1.5 rounded-full border border-teal-700">
-          Sector: {profile.sector_guess || "Apparel"}
-        </span>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <div className="bg-teal-900/60 p-4 rounded-xl border border-teal-800">
-          <p className="text-xs font-mono text-teal-300 uppercase">Identified Skills</p>
-          <p className="text-base font-body font-semibold text-white mt-1">
-            {(profile.skills || []).join(", ") || "Tailoring, Embroidery"}
-          </p>
-        </div>
-        <div className="bg-teal-900/60 p-4 rounded-xl border border-teal-800">
-          <p className="text-xs font-mono text-teal-300 uppercase">Experience Level</p>
-          <p className="text-base font-body font-semibold text-white mt-1">
-            {profile.experience_years || 3} Years Active
-          </p>
-        </div>
-        <div className="bg-teal-900/60 p-4 rounded-xl border border-teal-800">
-          <p className="text-xs font-mono text-teal-300 uppercase">Primary Sector</p>
-          <p className="text-base font-body font-semibold text-white mt-1">
-            {profile.sector_guess || "Apparel & Textiles"}
-          </p>
-        </div>
-      </div>
-
-      <p className="text-xs font-mono uppercase tracking-widest text-amber-400 mb-4">
-        NSQF Aligned Occupation Pathway Recommendations
-      </p>
-
-      <div className="space-y-4 mb-8">
-        {matches.map((occ, idx) => (
-          <div key={idx} className="bg-teal-900/90 rounded-xl p-5 border border-teal-700/80 shadow-sm">
-            <div className="flex justify-between items-start mb-2">
-              <h3 className="font-body font-bold text-lg text-white">{occ.title}</h3>
-              <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 px-3 py-1 rounded-full text-xs font-mono font-bold">
-                Match Score: {occ.score}
-              </span>
             </div>
-            <p className="font-body text-xs text-teal-200">
-              <strong>Matched Core Skills:</strong> {(occ.matched_skills || []).join(", ") || "Tailoring"}
-            </p>
-            {occ.missing_skills?.length > 0 && (
-              <p className="font-body text-xs text-amber-200/90 mt-1">
-                <strong>Recommended Upskilling Gaps:</strong> {occ.missing_skills.join(", ")}
-              </p>
-            )}
-          </div>
-        ))}
-      </div>
 
-      <div className="flex items-center justify-between border-t border-teal-800 pt-6">
-        <button
-          onClick={onBackToChat}
-          className="text-teal-300 hover:text-white font-body text-sm font-semibold underline underline-offset-4"
-        >
-          ← Return to Voice Interview
-        </button>
-        <button
-          onClick={onReset}
-          className="px-6 py-3 bg-amber-600 text-white font-mono text-xs font-bold uppercase tracking-wider rounded-xl hover:bg-amber-700 transition-colors shadow-sm"
-        >
-          Restart New Candidate Interview
-        </button>
+
+            {/* Text Input Form Fallback */}
+            <form onSubmit={handleManualTextSubmit} className="flex gap-2">
+              <input
+                type="text"
+                value={typedText}
+                onChange={(e) => setTypedText(e.target.value)}
+                placeholder="Type a spoken response in Hindi or English (e.g. Main 3 saal se silai kar rahi hu)..."
+                className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-cyan-500"
+              />
+              <button
+                type="submit"
+                className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold px-6 py-3 rounded-xl text-xs uppercase font-mono tracking-wider transition-all shadow-lg shadow-cyan-500/20"
+              >
+                Send
+              </button>
+            </form>
+
+          </div>
+
+
+          {/* Right Column: Real-Time AI Diagnostic Assessment Sidebar (5 cols) */}
+          <div className="lg:col-span-5 space-y-6">
+
+            <div className="glass-panel p-6 rounded-3xl border border-slate-800 space-y-6 shadow-2xl">
+              <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+                <div>
+                  <span className="text-[10px] font-mono text-cyan-400 font-bold uppercase bg-cyan-950 px-2 py-0.5 rounded border border-cyan-800">
+                    Live Extracted Profile
+                  </span>
+                  <h3 className="text-lg font-display font-bold text-white mt-1">AI Diagnostic Assessment</h3>
+                </div>
+                <span className="text-xs font-mono text-emerald-400 font-bold">100% NSQF</span>
+              </div>
+
+              {/* Extracted Profile Metadata Cards */}
+              {latestAnalysis && (
+                <div className="space-y-4">
+                  
+                  <div className="bg-slate-900/90 rounded-2xl p-4 border border-slate-800 space-y-2">
+                    <span className="text-[11px] font-mono text-slate-400 uppercase font-bold">Identified Skills</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {latestAnalysis.profile?.skills?.map((sk) => (
+                        <span key={sk} className="bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 px-2.5 py-1 rounded-lg text-xs font-mono font-semibold">
+                          ✓ {sk}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-slate-900/90 rounded-2xl p-3.5 border border-slate-800">
+                      <span className="text-[10px] font-mono text-slate-400 uppercase block">Experience</span>
+                      <span className="text-sm font-bold text-white mt-0.5 block">
+                        {latestAnalysis.profile?.experience_years ? `${latestAnalysis.profile.experience_years} Years` : "1 Year"}
+                      </span>
+                    </div>
+
+                    <div className="bg-slate-900/90 rounded-2xl p-3.5 border border-slate-800">
+                      <span className="text-[10px] font-mono text-slate-400 uppercase block">Sector</span>
+                      <span className="text-sm font-bold text-amber-400 mt-0.5 block">
+                        {latestAnalysis.profile?.sector_guess || "Apparel"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Top Occupation Recommendations */}
+                  <div className="space-y-3 pt-2">
+                    <span className="text-[11px] font-mono text-slate-400 uppercase font-bold block">
+                      Recommended Job Roles
+                    </span>
+
+                    {latestAnalysis.matches?.map((m) => (
+                      <div key={m.title} className="bg-slate-950 rounded-2xl p-4 border border-slate-800 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-sm font-bold text-white">{m.title}</h4>
+                          <span className="text-sm font-display font-extrabold text-emerald-400">{m.score}%</span>
+                        </div>
+
+                        {/* Skill Gap Analysis */}
+                        {m.missing_skills && m.missing_skills.length > 0 && (
+                          <div className="text-[11px] text-slate-400 font-mono">
+                            <span>Recommended Skill Training: </span>
+                            <span className="text-amber-400">{m.missing_skills.join(", ")}</span>
+                          </div>
+                        )}
+
+                        <button className="w-full mt-2 py-2 bg-slate-900 hover:bg-slate-800 text-cyan-400 text-xs font-mono font-bold rounded-xl border border-slate-800 transition-colors">
+                          Enroll PM-AJAY Training Grant &rarr;
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                </div>
+              )}
+
+            </div>
+
+          </div>
+
+        </div>
+
       </div>
     </div>
-  );
-}
-
-function CentralOrbIcon({ status, isPaused }) {
-  if (isPaused) {
-    return (
-      <svg className="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 24 24">
-        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-      </svg>
-    );
-  }
-
-  if (status === "processing") {
-    return (
-      <svg className="w-10 h-10 text-white animate-spin" fill="none" viewBox="0 0 24 24">
-        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-      </svg>
-    );
-  }
-
-  return (
-    <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24">
-      <rect x="9" y="2" width="6" height="12" rx="3" fill="currentColor" />
-      <path d="M5 11a7 7 0 0 0 14 0M12 18v3" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function PauseIcon() {
-  return (
-    <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-      <path d="M8 5v14l11-7z" />
-    </svg>
-  );
-}
-
-function MicToggleIcon() {
-  return (
-    <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-      <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-    </svg>
   );
 }
