@@ -9,3 +9,4 @@ Security / Safety Worker,['SEC/Q1015'],False,False
 Hospitality / Food Service,"['SEC/Q1016', 'HOS/Q1015', 'HOS/Q1016']",False,True
 Automotive Technician,"['AUT/Q1015', 'AUT/Q1016']",False,True
 Logistics Worker,['LOG/Q1015'],False,False
+Traditional Hand Embroiderer (Chikankari & Zari-Zardozi),['HCS/Q7301'],true,true
