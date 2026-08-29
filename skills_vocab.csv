@@ -3,11 +3,8 @@ user_phrase_variations,mapped_skill,intent
 "['shop job', 'kirana', 'sales', 'customer handling', 'dukandar']",Retail Worker,skill_recommendation
 "['kheti', 'farming', 'organic farming', 'mushroom', 'dairy', 'gaupalan']",Farmer / Agricultural Worker,skill_recommendation
 "['construction', 'mason', 'plumber', 'electrician', 'building work']",Construction Worker,skill_recommendation
-"['beauty parlour', 'makeup', 'hair cutting', 'salon', 'cosmetics']",Beauty & Wellness Professional,skill_recommendation
 "['computer job', 'mobile repair', 'data entry', 'phone thik']",IT / Electronics Technician,skill_recommendation
 "['kapde', 'tailoring', 'sewing', 'embroidery', 'loom', 'weaving']",Textile / Handicraft Worker,skill_recommendation
 "['security guard', 'watchman', 'safety']",Security / Safety Worker,skill_recommendation
-"['cook', 'chef', 'hotel job', 'food service', 'cleaning']",Hospitality / Food Service,skill_recommendation
 "['mechanic', 'vehicle repair', 'car wash', 'bike repair']",Automotive Technician,skill_recommendation
-"['solar', 'electricity', 'power']",Green Energy Technician,skill_recommendation
 "['warehouse', 'godown', 'logistics', 'driver helper']",Logistics Worker,skill_recommendation
