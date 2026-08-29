@@ -8,3 +8,5 @@ user_phrase_variations,mapped_skill,intent
 "['security guard', 'watchman', 'safety']",Security / Safety Worker,skill_recommendation
 "['mechanic', 'vehicle repair', 'car wash', 'bike repair']",Automotive Technician,skill_recommendation
 "['warehouse', 'godown', 'logistics', 'driver helper']",Logistics Worker,skill_recommendation
+"['lucknowi chikan stitching','Mastery of traditional stitches (Tepchi, Bakhiya, Murri, Phanda)',
+'heavy wedding dress metallic embroidery','Zari-Zardozi metal wire and bead application','silai','kadhai']"Traditional Hand Embroiderer (Chikankari & Zari-Zardozi),skill_recommendation
