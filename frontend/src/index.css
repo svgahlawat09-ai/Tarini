@@ -2,107 +2,72 @@
 
 @theme {
   --font-sans: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-display: "Outfit", sans-serif;
+  --font-display: "Plus Jakarta Sans", sans-serif;
   --font-mono: "JetBrains Mono", monospace;
 
-  --color-brand-cyan: #06b6d4;
-  --color-brand-teal: #0d9488;
-  --color-brand-emerald: #10b981;
-  --color-brand-amber: #f59e0b;
-  --color-brand-indigo: #6366f1;
+  --color-tarini-green: #0a5c2b;
+  --color-tarini-green-hover: #074720;
+  --color-tarini-bg: #f4f8f3;
+  --color-tarini-card: #ffffff;
+  --color-tarini-dark: #111827;
 
-  --animate-pulse-glow: pulseGlow 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  --animate-float: float 4s ease-in-out infinite;
-  --animate-spin-slow: spin 12s linear infinite;
+  --animate-pulse-halo: haloPulse 2s ease-in-out infinite;
 
-  @keyframes pulseGlow {
-    0%, 100% { opacity: 0.6; transform: scale(1); }
-    50% { opacity: 1; transform: scale(1.08); }
-  }
-
-  @keyframes float {
-    0%, 100% { transform: translateY(0px); }
-    50% { transform: translateY(-8px); }
+  @keyframes haloPulse {
+    0%, 100% { transform: scale(1); opacity: 0.4; }
+    50% { transform: scale(1.15); opacity: 0.8; }
   }
 }
 
-/* Base style resets & scrollbar */
-html {
+/* Base resets for light mint green theme matching PDF screenshots */
+html, body {
+  background-color: #f4f8f3;
+  color: #1a2e22;
+  font-family: "Plus Jakarta Sans", sans-serif;
   scroll-behavior: smooth;
 }
 
+/* Global scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #090d16;
+  background: #f4f8f3;
 }
 ::-webkit-scrollbar-thumb {
-  background: #1e293b;
+  background: #cbd5e1;
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #334155;
+  background: #94a3b8;
 }
 
-/* Custom visual utilities for MNC-grade look */
-.glass-panel {
-  background: rgba(15, 23, 42, 0.75);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+/* Tariff custom UI cards matching PDF */
+.pdf-card {
+  background-color: #ffffff;
+  border: 1px solid rgba(10, 92, 43, 0.12);
+  border-radius: 1rem;
+  box-shadow: 0 2px 8px -2px rgba(10, 92, 43, 0.05);
 }
 
-.glass-card {
-  background: rgba(30, 41, 59, 0.5);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+.pdf-card-hover {
+  transition: all 0.2s ease-in-out;
 }
-
-.glass-card-hover {
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.glass-card-hover:hover {
-  background: rgba(30, 41, 59, 0.75);
-  border-color: rgba(6, 182, 212, 0.3);
+.pdf-card-hover:hover {
+  border-color: rgba(10, 92, 43, 0.3);
+  box-shadow: 0 8px 20px -4px rgba(10, 92, 43, 0.1);
   transform: translateY(-2px);
-  box-shadow: 0 12px 30px -10px rgba(6, 182, 212, 0.15);
 }
 
-.bg-radial-grid {
-  background-size: 32px 32px;
-  background-image: 
-    radial-gradient(circle, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+.pdf-button-primary {
+  background-color: #0a5c2b;
+  color: #ffffff;
+  font-weight: 600;
+  border-radius: 0.75rem;
+  transition: all 0.2s ease-in-out;
 }
-
-.gradient-text-cyan {
-  background: linear-gradient(135deg, #38bdf8 0%, #06b6d4 50%, #10b981 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+.pdf-button-primary:hover {
+  background-color: #074720;
+  box-shadow: 0 4px 12px rgba(10, 92, 43, 0.2);
 }
-
-.gradient-text-amber {
-  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #ea580c 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.gradient-border {
-  position: relative;
-  border-radius: 1rem;
-}
-.gradient-border::before {
-  content: '';
-  position: absolute;
-  inset: -1px;
-  border-radius: 1rem;
-  padding: 1px;
-  background: linear-gradient(135deg, rgba(6, 182, 212, 0.5), rgba(16, 185, 129, 0.2), rgba(245, 158, 11, 0.5));
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
-}
-
