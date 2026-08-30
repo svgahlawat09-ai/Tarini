@@ -35,7 +35,8 @@ load_dotenv()  # reads GROQ_API_KEY from a local .env file if present
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
-DB_PATH = BASE_DIR / "tarini.db"
+DB_PATH = Path("/tmp/tarini.db") if os.environ.get("VERCEL") else BASE_DIR / "tarini.db"
+
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 GROQ_TRANSCRIBE_URL = "https://api.groq.com/openai/v1/audio/transcriptions"
