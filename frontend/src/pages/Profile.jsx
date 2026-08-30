@@ -243,11 +243,11 @@ export default function Profile() {
           <span className="text-[10px] font-bold">Assistant</span>
         </Link>
 
-        <Link to="/skill-map" className="flex flex-col items-center gap-0.5 text-slate-500 hover:text-[#0a5c2b]">
+        <Link to="/courses" className="flex flex-col items-center gap-0.5 text-slate-500 hover:text-[#0a5c2b]">
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
           </svg>
-          <span className="text-[10px] font-bold">Skills</span>
+          <span className="text-[10px] font-bold">Courses</span>
         </Link>
 
         <Link to="/profile" className="flex flex-col items-center gap-0.5 text-[#0a5c2b] bg-emerald-100/80 px-3 py-1 rounded-xl font-bold">

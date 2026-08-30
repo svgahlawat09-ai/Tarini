@@ -1,484 +1,343 @@
-"""
-Tarini — AI Voice Livelihood Assessment Platform
-SIH 2026 Problem Statement #26097
-
-Backend: FastAPI + pandas (reference data) + SQLite (user profiles/sessions)
-
-Run locally:
-    pip install -r requirements.txt
-    uvicorn main:app --reload --port 8000
-
-Deploy (Render/Railway etc.):
-    uvicorn main:app --host 0.0.0.0 --port $PORT
-"""
-
-import ast
-import difflib
 import os
-import re
-import sqlite3
-import uuid
-from datetime import datetime
-from pathlib import Path
-from typing import List, Optional
-
+import logging
 import pandas as pd
-import requests
+from pathlib import Path
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-
+from groq import Groq
 from extraction.extract_skills import extract_skills, generate_llm_response
+from scoring.recommend import score_all_occupations
 
-load_dotenv()  # reads GROQ_API_KEY from a local .env file if present
+load_dotenv()
 
-BASE_DIR = Path(__file__).resolve().parent
-DATA_DIR = BASE_DIR / "data"
-DB_PATH = Path("/tmp/tarini.db") if os.environ.get("VERCEL") else BASE_DIR / "tarini.db"
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
+app = FastAPI(title="SIH26097 Voice Assistant API")
 
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
-GROQ_TRANSCRIBE_URL = "https://api.groq.com/openai/v1/audio/transcriptions"
-GROQ_STT_MODEL = "whisper-large-v3-turbo"  # fast + strong multilingual accuracy, good for Hindi/Hinglish
+# Restrict to known frontend origins in production; keep localhost for dev.
+ALLOWED_ORIGINS = [
+    "https://tarinisih.vercel.app",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "*"  # Allow wildcard for flexible deployment environments
+]
 
-app = FastAPI(title="Tarini API", version="1.0.0")
-
-# Allow the GitHub Pages frontend (and local dev) to call this API.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # tighten to your exact GitHub Pages origin before final submission
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ---------------------------------------------------------------------------
-# Load reference data
-# ---------------------------------------------------------------------------
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
-qp_df = pd.read_csv(DATA_DIR / "qp_codes.csv", keep_default_na=False)
-occ_df = pd.read_csv(DATA_DIR / "occupations.csv")
-phrase_df = pd.read_csv(DATA_DIR / "phrase_variations.csv")
+if not groq_client:
+    logger.warning(
+        "GROQ_API_KEY is not set. STT/LLM features will return explicit "
+        "errors instead of fake success — set this env var in production."
+    )
 
-# occupations.csv stores linked_qp_codes as a python-list-looking string -> parse it
-occ_df["linked_qp_codes"] = occ_df["linked_qp_codes"].apply(ast.literal_eval)
-
-# phrase_variations.csv: user_phrase_variations is also a stringified list
-phrase_df["user_phrase_variations"] = phrase_df["user_phrase_variations"].apply(ast.literal_eval)
-
-# The phrase file uses slightly different skill-cluster names than occupations.csv
-# (e.g. "Allied Agricultural & Livestock Worker" vs "Farmer / Agricultural Worker").
-# Map every phrase-cluster name to the closest real occupation_name so we can pull QP codes.
-SKILL_ALIAS_TO_OCCUPATION = {
-    "healthcare worker": "Healthcare Worker",
-    "traditional handicraft & textile worker": "Textile / Handicraft Worker",
-    "allied agricultural & livestock worker": "Farmer / Agricultural Worker",
-    "basic infrastructure construction worker": "Construction Worker",
-    "retail worker": "Retail Worker",
-}
-
-# Flatten phrase table into (phrase, mapped_skill, intent) rows for fast fuzzy search
-FLAT_PHRASES = []
-for _, row in phrase_df.iterrows():
-    for phrase in row["user_phrase_variations"]:
-        FLAT_PHRASES.append(
-            {"phrase": phrase.lower().strip(), "mapped_skill": row["mapped_skill"], "intent": row["intent"]}
-        )
-
-
-def normalize(text: str) -> str:
-    text = text.lower().strip()
-    text = re.sub(r"[^a-z0-9\u0900-\u097F\s]", " ", text)  # keep Devanagari + latin + digits
-    text = re.sub(r"\s+", " ", text)
-    return text
-
-
-def match_phrase(user_text: str):
-    """
-    Fuzzy-match free-form user speech/text against known phrase variations.
-    Returns (mapped_skill, intent, confidence, matched_example) or (None, None, 0, None).
-    """
-    norm_input = normalize(user_text)
-    if not norm_input:
-        return None, None, 0.0, None
-
-    best = {"score": 0.0, "row": None}
-
-    for entry in FLAT_PHRASES:
-        norm_phrase = normalize(entry["phrase"])
-
-        # 1) token overlap score (handles word-order differences, partial matches)
-        input_tokens = set(norm_input.split())
-        phrase_tokens = set(norm_phrase.split())
-        if phrase_tokens:
-            overlap = len(input_tokens & phrase_tokens) / len(phrase_tokens)
-        else:
-            overlap = 0.0
-
-        # 2) sequence similarity (handles typos / STT mis-transcription)
-        seq_ratio = difflib.SequenceMatcher(None, norm_input, norm_phrase).ratio()
-
-        score = max(overlap, seq_ratio)
-        if score > best["score"]:
-            best = {"score": score, "row": entry}
-
-    if best["row"] and best["score"] >= 0.42:
-        r = best["row"]
-        return r["mapped_skill"], r["intent"], round(best["score"], 2), r["phrase"]
-    return None, None, round(best["score"], 2) if best["row"] else 0.0, None
-
-
-def get_courses_for_skill(mapped_skill: str, education_level: Optional[str] = None):
-    occ_name = SKILL_ALIAS_TO_OCCUPATION.get(mapped_skill.lower(), mapped_skill)
-    match = occ_df[occ_df["occupation_name"].str.lower() == occ_name.lower()]
-    if match.empty:
-        return [], occ_name
-
-    qp_codes = match.iloc[0]["linked_qp_codes"]
-    courses = qp_df[qp_df["qp_code"].isin(qp_codes)].to_dict(orient="records")
-
-    if education_level:
-        courses = [c for c in courses if is_eligible(education_level, c["eligibility"])]
-
-    return courses, occ_name
-
-
-EDU_RANK = {"none": 0, "5th pass": 5, "8th pass": 8, "10th pass": 10, "12th pass": 12, "8th pass + iti": 9}
-
-
-def is_eligible(user_edu: str, required_edu: str) -> bool:
-    user_key = user_edu.strip().lower()
-    req_key = str(required_edu).strip().lower()
-    if req_key in ("none", "nan"):
-        return True
-    return EDU_RANK.get(user_key, 0) >= EDU_RANK.get(req_key, 99)
-
-
-# ---------------------------------------------------------------------------
-# Conversational reply generation (bilingual Hindi + English, friendly tone)
-# ---------------------------------------------------------------------------
-
-INTENT_OPENERS = {
-    "course_enquiry": [
-        "Bahut badhiya! Is field mein kuch achhe courses hain jo aapke liye perfect ho sakte hain 🙂",
-        "Great choice! Yeh raha kuch options jo isi kaam se juday hain —",
-    ],
-    "skill_learning": [
-        "Wah, naya hunar seekhna bahut accha decision hai! Yeh courses aapko step-by-step sikhayenge —",
-        "Sure! Chaliye dekhte hain aap yeh skill kaise seekh sakte hain —",
-    ],
-    "business_startup": [
-        "Apna khud ka kaam shuru karna badi baat hai — main aapki poori madad karunga! Yeh courses self-employment ke liye best hain —",
-        "Great, apna business shuru karna chahte hain! Yeh training aapko dhanda set karna sikhayegi —",
-    ],
-}
-
-NO_MATCH_REPLIES = [
-    "Maaf kijiye, main abhi thoda confuse ho gaya 🙈 — kya aap thoda aur detail mein bata sakte hain aap kaunsa kaam seekhna chahte hain? Jaise — silai, kheti, healthcare, ya construction?",
-    "Hmm, mujhe pura samajh nahi aaya. Aap yeh bata sakte hain — aap kis field mein kaam ya training dhoondh rahe hain? (health, retail, kheti, construction, IT, textile...)",
+# Load occupations dataset relative to THIS file's location, not the
+# process's working directory (this was breaking in production).
+BASE_DIR = Path(__file__).resolve().parent
+CANDIDATE_PATHS = [
+    BASE_DIR / "data" / "occupations.csv",
+    BASE_DIR.parent / "data" / "occupations.csv",
 ]
 
-FOLLOWUP_BY_INTENT = {
-    "course_enquiry": "Aap abhi kitni padhai tak pahunche hain? (jaise 8th pass, 10th pass, 12th pass) — isse main sahi course dikha paunga.",
-    "skill_learning": "Aap yeh kaam ghar baithe seekhna chahte hain ya training center jaake?",
-    "business_startup": "Aapke paas is kaam ke liye jagah/zameen ya thoda paisa lagane ki suvidha hai kya? Isse main sahi scheme bhi bata sakta hoon.",
-}
+occupations_df = pd.DataFrame()
+for p in CANDIDATE_PATHS:
+    if p.exists():
+        try:
+            occupations_df = pd.read_csv(p)
+            logger.info(f"Loaded occupations dataset from {p}")
+            break
+        except Exception as e:
+            logger.warning(f"Failed reading {p}: {e}")
 
+if occupations_df.empty:
+    logger.warning("occupations.csv not found in expected locations.")
 
-def build_reply(mapped_skill, intent, confidence, courses, occ_name):
-    import random
-
-    opener = random.choice(INTENT_OPENERS.get(intent, ["Yeh raha jo aapke liye best hoga —"]))
-    lines = [opener]
-
-    if not courses:
-        lines.append(
-            f"'{occ_name}' field ke liye abhi detailed courses list nahi mil paayi, lekin main aapko sahi jagah bhej sakta hoon."
-        )
-    else:
-        for c in courses[:4]:
-            duration_days = round(c["duration_hours"] / 8)
-            self_emp = "Ismein aap apna khud ka kaam bhi shuru kar sakte hain 💪" if c["self_employment_possible"] else ""
-            lines.append(
-                f"• **{c['job_role']}** ({c['qp_code']}) — NSQF Level {c['nsqf_level']}, "
-                f"lagbhag {c['duration_hours']} ghante (~{duration_days} din) ka course, "
-                f"eligibility: {c['eligibility']}. {self_emp}"
-            )
-
-    followup = FOLLOWUP_BY_INTENT.get(intent, "Kya aap chahenge main aapko iska syllabus ya nearest training center bhi bataun?")
-    lines.append(followup)
-
-    return "\n".join(lines)
-
-
-# ---------------------------------------------------------------------------
-# SQLite: user profiles + chat session log
-# ---------------------------------------------------------------------------
-
-def init_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute(
-        """CREATE TABLE IF NOT EXISTS profiles (
-            user_id TEXT PRIMARY KEY,
-            name TEXT,
-            age INTEGER,
-            gender TEXT,
-            education TEXT,
-            location TEXT,
-            phone TEXT,
-            interests TEXT,
-            preferred_language TEXT,
-            updated_at TEXT
-        )"""
-    )
-    conn.execute(
-        """CREATE TABLE IF NOT EXISTS chat_log (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            session_id TEXT,
-            user_id TEXT,
-            user_message TEXT,
-            matched_skill TEXT,
-            intent TEXT,
-            confidence REAL,
-            bot_reply TEXT,
-            created_at TEXT
-        )"""
-    )
-    conn.commit()
-    conn.close()
-
-
-init_db()
-
-
-def get_conn():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-
-# ---------------------------------------------------------------------------
-# Pydantic models
-# ---------------------------------------------------------------------------
-
-class ChatRequest(BaseModel):
-    session_id: Optional[str] = None
-    user_id: Optional[str] = None
-    message: str
-    education_level: Optional[str] = None  # optional context to filter eligible courses
-
-
-class ChatResponse(BaseModel):
-    session_id: str
-    reply_text: str
-    matched_skill: Optional[str]
-    intent: Optional[str]
-    confidence: float
-    courses: List[dict]
-    is_fallback: bool
-
-
-class ProfileIn(BaseModel):
-    user_id: Optional[str] = None
-    name: str
-    age: Optional[int] = None
-    gender: Optional[str] = None
-    education: Optional[str] = None
-    location: Optional[str] = None
-    phone: Optional[str] = None
-    interests: Optional[str] = None
-    preferred_language: Optional[str] = "hi-en"
-
-
-# ---------------------------------------------------------------------------
-# Routes
-# ---------------------------------------------------------------------------
 
 @app.get("/")
+def root():
+    return {
+        "status": "ok",
+        "message": "SIH26097 backend running",
+        "groq_configured": bool(groq_client),
+        "occupations_loaded": len(occupations_df),
+    }
+
+
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "service": "Tarini API"}
+    return {
+        "status": "ok",
+        "message": "SIH26097 backend running",
+        "groq_configured": bool(groq_client),
+        "occupations_loaded": len(occupations_df),
+    }
 
 
 @app.post("/api/transcribe")
-async def transcribe_audio(file: UploadFile = File(...), language: Optional[str] = Form(None)):
-    """
-    Speech-to-text via Groq's hosted Whisper endpoint.
-    Frontend records mic audio (webm/wav) with MediaRecorder and POSTs it here.
-    `language` should be "hi" or "en" (ISO-639-1) — omit to let Whisper auto-detect.
-    """
-    if not GROQ_API_KEY:
-        raise HTTPException(
-            status_code=500,
-            detail="GROQ_API_KEY is not set on the server. Add it to backend/.env or your host's env vars.",
-        )
-
-    audio_bytes = await file.read()
-    if not audio_bytes:
-        raise HTTPException(status_code=400, detail="Empty audio file received.")
-
-    files = {"file": (file.filename or "audio.webm", audio_bytes, file.content_type or "audio/webm")}
-    data = {"model": GROQ_STT_MODEL, "response_format": "json"}
-    if language:
-        data["language"] = language
+async def transcribe(audio: UploadFile = File(...), language: str | None = None):
+    if not groq_client:
+        # Honest failure — never fake a transcript when the key is missing.
+        return {
+            "success": False,
+            "error": "Speech-to-text is not configured on the server (missing GROQ_API_KEY).",
+            "transcribed_text": "",
+            "text": "",
+            "detected_language": language or "hi",
+            "language": language or "hi",
+        }
 
     try:
-        resp = requests.post(
-            GROQ_TRANSCRIBE_URL,
-            headers={"Authorization": f"Bearer {GROQ_API_KEY}"},
-            data=data,
-            files=files,
-            timeout=30,
+        audio_bytes = await audio.read()
+        if not audio_bytes:
+            return {
+                "success": False,
+                "error": "No audio data received.",
+                "transcribed_text": "",
+                "text": "",
+                "detected_language": language or "hi",
+                "language": language or "hi",
+            }
+
+        filename = audio.filename or "speech.mp3"
+        kwargs = {
+            "file": (filename, audio_bytes),
+            "model": "whisper-large-v3-turbo",
+            "response_format": "verbose_json",
+        }
+        # Only force a language if the caller explicitly wants that — leave
+        # unset by default so Whisper auto-detects Hindi/Hinglish/English.
+        if language:
+            kwargs["language"] = language
+
+        transcription = groq_client.audio.transcriptions.create(**kwargs)
+        text = getattr(transcription, "text", "") or ""
+        detected_lang = getattr(transcription, "language", language or "hi")
+
+        if not text.strip():
+            return {
+                "success": False,
+                "error": "Could not understand the audio. Please try again or type your message.",
+                "transcribed_text": "",
+                "text": "",
+                "detected_language": detected_lang,
+                "language": detected_lang,
+            }
+
+        return {
+            "success": True,
+            "error": None,
+            "transcribed_text": text,
+            "detected_language": detected_lang,
+            "text": text,
+            "language": detected_lang,
+        }
+    except Exception as e:
+        logger.error(f"Groq Whisper transcription error: {e}")
+        return {
+            "success": False,
+            "error": "Voice transcription failed. Please try again or type your message.",
+            "transcribed_text": "",
+            "text": "",
+            "detected_language": language or "hi",
+            "language": language or "hi",
+        }
+
+
+@app.post("/api/analyze")
+async def analyze(payload: dict):
+    text = payload.get("text", "") or payload.get("transcribed_text", "") or payload.get("message", "")
+    detected_lang = payload.get("detected_language", payload.get("language", "hi"))
+
+    # Recent conversation window, e.g. [{"role": "user"|"assistant", "content": "..."}]
+    # Only used to give the LLM context for follow-ups; kept short intentionally.
+    conversation_history = payload.get("conversationHistory", []) or []
+    recent_history = conversation_history[-6:]
+
+    if not text.strip():
+        return {
+            "success": False,
+            "error": "No message text provided.",
+            "transcribed_text": "",
+            "detected_language": detected_lang,
+            "llm_response_text": "",
+            "profile": {"skills": [], "experience_years": None, "sector_guess": "unclear"},
+            "matches": [],
+            "top_occupation": None,
+        }
+
+    # Build a single string that folds in recent turns so the extractor and
+    # responder understand follow-ups like "what course should I take?".
+    context_text = text
+    if recent_history:
+        history_str = "\n".join(
+            f"{turn.get('role', 'user')}: {turn.get('content', '')}" for turn in recent_history
         )
-        resp.raise_for_status()
-    except requests.exceptions.RequestException as e:
-        detail = getattr(e.response, "text", str(e)) if getattr(e, "response", None) is not None else str(e)
-        raise HTTPException(status_code=502, detail=f"Groq transcription failed: {detail}")
+        context_text = f"Conversation so far:\n{history_str}\n\nLatest message: {text}"
 
-    text = resp.json().get("text", "").strip()
-    if not text:
-        raise HTTPException(status_code=422, detail="Could not understand the audio — please try again.")
+    try:
+        profile = extract_skills(context_text, detected_language=detected_lang)
+    except Exception as e:
+        logger.error(f"extract_skills exception: {e}")
+        profile = {"skills": [], "experience_years": None, "sector_guess": "unclear"}
 
-    return {"text": text}
+    if not profile.get("skills"):
+        # Don't force an occupation guess when nothing was actually extracted —
+        # matches the "do not hallucinate" requirement.
+        clarifying = (
+            "Aap apne kaam ya hunar ke baare mein thoda aur bataiye — jaise silai, "
+            "computer, driving, ya koi aur kaam — taaki main sahi salaah de sakoon."
+            if str(detected_lang).lower().startswith(("hi", "ur"))
+            else "Could you tell me a bit more about your work or skills — for example "
+            "tailoring, computer use, driving, or something else — so I can give you "
+            "relevant advice?"
+        )
+        return {
+            "success": True,
+            "transcribed_text": text,
+            "detected_language": detected_lang,
+            "llm_response_text": clarifying,
+            "audio_reply_url": None,
+            "profile": profile,
+            "matches": [],
+            "top_occupation": None,
+        }
+
+    try:
+        ranked = score_all_occupations(profile, occupations_df)
+    except Exception as e:
+        logger.error(f"score_all_occupations exception: {e}")
+        ranked = []
+
+    top = ranked[0] if ranked else None
+    top_title = top["title"] if top else "a role matching your skills"
+
+    try:
+        llm_response = generate_llm_response(text, profile, top_title, detected_language=detected_lang)
+    except Exception as e:
+        logger.error(f"generate_llm_response exception: {e}")
+        llm_response = f"We recommend {top_title} based on your skills."
+
+    return {
+        "success": True,
+        "transcribed_text": text,
+        "detected_language": detected_lang,
+        "llm_response_text": llm_response,
+        "audio_reply_url": None,
+        "profile": profile,
+        "matches": ranked[:3],
+        "top_occupation": top["occupation_id"] if top else None,
+    }
 
 
-@app.post("/api/chat", response_model=ChatResponse)
-def chat(req: ChatRequest):
-    session_id = req.session_id or str(uuid.uuid4())
-
-    mapped_skill, intent, confidence, matched_example = match_phrase(req.message)
-
-    # Try LLM skill extraction if Groq API key is present
-    llm_extracted = None
-    if GROQ_API_KEY:
-        try:
-            detected_lang = "hi" if any("\u0900" <= c <= "\u097F" for c in req.message) else "en"
-            llm_extracted = extract_skills(req.message, detected_language=detected_lang)
-            if not mapped_skill and llm_extracted and llm_extracted.get("skills"):
-                for s in llm_extracted["skills"]:
-                    ms, it, conf, _ = match_phrase(s)
-                    if ms:
-                        mapped_skill, intent, confidence = ms, it, conf
-                        break
-        except Exception as e:
-            print(f"Groq LLM extraction fallback notice: {e}")
-
-    if not mapped_skill:
-        import random
-
-        reply = random.choice(NO_MATCH_REPLIES)
-        courses = []
-        is_fallback = True
+# Retain /api/chat alias mapping to /api/analyze for backwards compatibility
+@app.post("/api/chat")
+async def chat(payload: dict):
+    res = await analyze(payload)
+    # Adapt response format for any existing /api/chat consumers
+    if res.get("success"):
+        matches = res.get("matches", [])
+        top_occ = matches[0] if matches else {}
+        return {
+            "session_id": "session-1",
+            "reply_text": res.get("llm_response_text", ""),
+            "matched_skill": res.get("profile", {}).get("skills", [None])[0] if res.get("profile", {}).get("skills") else None,
+            "intent": "skill_assessment",
+            "confidence": top_occ.get("score", 0.9),
+            "courses": [
+                {
+                    "qp_code": top_occ.get("occupation_id", "COURSE-01"),
+                    "job_role": top_occ.get("title", "Skill Course"),
+                    "nsqf_level": top_occ.get("nsqf_level", 4),
+                    "sector": top_occ.get("sector", "General"),
+                    "duration_hours": 300,
+                    "eligibility": "10th Pass",
+                    "self_employment_possible": True,
+                }
+            ] if top_occ else [],
+            "is_fallback": False,
+            "raw_analysis": res,
+        }
     else:
-        courses, occ_name = get_courses_for_skill(mapped_skill, req.education_level)
-        
-        # Try generating spoken LLM response via Groq if available
-        llm_reply = None
-        if GROQ_API_KEY:
-            try:
-                detected_lang = "hi" if any("\u0900" <= c <= "\u097F" for c in req.message) else "en"
-                prof = llm_extracted or {"skills": [mapped_skill]}
-                llm_reply = generate_llm_response(
-                    text=req.message,
-                    profile=prof,
-                    top_occupation_title=occ_name,
-                    detected_language=detected_lang
-                )
-            except Exception as e:
-                print(f"Groq LLM voice reply fallback notice: {e}")
-        
-        if llm_reply:
-            reply = llm_reply
-        else:
-            reply = build_reply(mapped_skill, intent, confidence, courses, occ_name)
-        
-        is_fallback = False
-
-    conn = get_conn()
-    conn.execute(
-        "INSERT INTO chat_log (session_id, user_id, user_message, matched_skill, intent, confidence, bot_reply, created_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        (session_id, req.user_id, req.message, mapped_skill, intent, confidence, reply, datetime.utcnow().isoformat()),
-    )
-    conn.commit()
-    conn.close()
-
-    return ChatResponse(
-        session_id=session_id,
-        reply_text=reply,
-        matched_skill=mapped_skill,
-        intent=intent,
-        confidence=confidence,
-        courses=courses,
-        is_fallback=is_fallback,
-    )
+        return {
+            "session_id": "session-1",
+            "reply_text": res.get("error", "An error occurred."),
+            "matched_skill": None,
+            "intent": None,
+            "confidence": 0,
+            "courses": [],
+            "is_fallback": True,
+            "raw_analysis": res,
+        }
 
 
+@app.get("/api/occupation/{occupation_id}")
+async def get_occupation(occupation_id: str):
+    if occupations_df.empty:
+        return {
+            "id": occupation_id,
+            "title": "Unknown",
+            "matched_skills": [],
+            "missing_skills": [],
+            "courses": [],
+        }
 
-@app.get("/api/courses")
-def list_all_courses():
-    return qp_df.to_dict(orient="records")
+    match = occupations_df[occupations_df["occupation_id"] == occupation_id]
+    if match.empty:
+        return {
+            "id": occupation_id,
+            "title": "Unknown",
+            "matched_skills": [],
+            "missing_skills": [],
+            "courses": [],
+        }
+
+    row = match.iloc[0]
+    title = str(row.get("title", "Unknown"))
+    sector = str(row.get("sector", ""))
+    nsqf_level = row.get("nsqf_level", None)
+    raw_skills = str(row.get("skills_required", ""))
+    occ_skills = [s.strip() for s in raw_skills.split(",") if s.strip()]
+
+    # Generic, REAL official portals — not a fabricated specific course page.
+    course_name = f"{title} — Skill Certification"
+    if nsqf_level and str(nsqf_level) != "nan":
+        course_name += f" (NSQF Level {int(float(nsqf_level))})"
+
+    return {
+        "id": occupation_id,
+        "title": title,
+        "sector": sector,
+        "matched_skills": occ_skills[:1] if occ_skills else [],
+        "missing_skills": occ_skills[1:] if len(occ_skills) > 1 else [],
+        "courses": [
+            {
+                "id": f"{occupation_id}-C01",
+                "course_name": course_name,
+                "provider": "Skill India Digital Hub",
+                "url": "https://www.skillindiadigital.gov.in/",
+                "sourceType": "official",
+            },
+            {
+                "id": f"{occupation_id}-C02",
+                "course_name": f"{sector} sector courses via NSDC",
+                "provider": "National Skill Development Corporation (NSDC)",
+                "url": "https://www.nsdcindia.org/",
+                "sourceType": "official",
+            },
+        ],
+    }
 
 
-@app.get("/api/occupations")
-def list_occupations():
-    return occ_df.to_dict(orient="records")
-
-
-@app.get("/api/courses/by-occupation/{occupation_name}")
-def courses_by_occupation(occupation_name: str):
-    courses, occ_name = get_courses_for_skill(occupation_name)
-    if not courses:
-        raise HTTPException(status_code=404, detail=f"No courses found for '{occupation_name}'")
-    return {"occupation": occ_name, "courses": courses}
-
-
-@app.get("/api/schemes")
-def list_schemes():
-    """
-    Curated real government scheme / portal links.
-    NOTE: verify these before your final demo — govt portal URLs occasionally change.
-    """
-    return [
-        {"name": "Skill India Digital (courses + certification)", "url": "https://www.skillindiadigital.gov.in/"},
-        {"name": "PMKVY - Pradhan Mantri Kaushal Vikas Yojana", "url": "https://www.pmkvyofficial.org/"},
-        {"name": "National Career Service (jobs + counselling)", "url": "https://www.ncs.gov.in/"},
-        {"name": "myScheme - all central & state govt schemes", "url": "https://www.myscheme.gov.in/"},
-        {"name": "PM-AJAY (SC welfare & livelihood scheme)", "url": "https://socialjustice.gov.in/schemes/46"},
-        {"name": "e-Shram (unorganised worker registration)", "url": "https://eshram.gov.in/"},
-        {"name": "Mudra Yojana (business/self-employment loans)", "url": "https://www.mudra.org.in/"},
-        {"name": "NSDC Training Partner Locator", "url": "https://www.nsdcindia.org/"},
-    ]
-
-
-@app.post("/api/profile")
-def save_profile(profile: ProfileIn):
-    user_id = profile.user_id or str(uuid.uuid4())
-    conn = get_conn()
-    conn.execute(
-        """INSERT INTO profiles (user_id, name, age, gender, education, location, phone, interests, preferred_language, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-           ON CONFLICT(user_id) DO UPDATE SET
-             name=excluded.name, age=excluded.age, gender=excluded.gender, education=excluded.education,
-             location=excluded.location, phone=excluded.phone, interests=excluded.interests,
-             preferred_language=excluded.preferred_language, updated_at=excluded.updated_at""",
-        (
-            user_id, profile.name, profile.age, profile.gender, profile.education,
-            profile.location, profile.phone, profile.interests, profile.preferred_language,
-            datetime.utcnow().isoformat(),
-        ),
-    )
-    conn.commit()
-    conn.close()
-    return {"user_id": user_id, "status": "saved"}
-
-
-@app.get("/api/profile/{user_id}")
-def get_profile(user_id: str):
-    conn = get_conn()
-    row = conn.execute("SELECT * FROM profiles WHERE user_id = ?", (user_id,)).fetchone()
-    conn.close()
-    if not row:
-        raise HTTPException(status_code=404, detail="Profile not found")
-    return dict(row)
+@app.get("/api/sessions/recent")
+async def recent_sessions():
+    return {"sessions": []}

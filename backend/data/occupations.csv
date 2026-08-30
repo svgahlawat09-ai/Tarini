@@ -1,11 +1,16 @@
-occupation_name,linked_qp_codes,is_traditional_occupation,mobility_safe
-Healthcare Worker,"['HSS/Q5101', 'HSS/Q5102', 'HSS/Q5103']",False,False
-Retail Worker,"['RAS/Q0104']",False,False
-Farmer / Agricultural Worker,"['AGR/Q1208', 'AGR/Q0401']",True,True
-Construction Worker,"['CON/Q0102', 'CON/Q0602']",True,False
-IT / Electronics Technician,"['SSC/Q2211', 'ELE/Q8104']",False,True
-Textile / Handicraft Worker,"['AMH/Q1001', 'HCS/Q7301']",True,True
-Security / Safety Worker,"['SEC/Q0101']",False,False
-Hospitality / Food Service,"['HOS/Q0101']",False,True
-Logistics Worker,"['LOG/Q1201']",False,False
-Traditional Hand Embroiderer (Chikankari & Zari-Zardozi),"['HCS/Q7301']",True,True
+occupation_id,title,sector,skills_required,nsqf_level
+OCC01,Boutique/Custom Apparel Maker,Apparel,"tailoring,embroidery,pattern making",4
+OCC02,Hand Embroiderer,Apparel,"embroidery,hand stitching,designing",3
+OCC03,Garment Quality Inspector,Apparel,"quality check,garment inspection,tailoring",4
+OCC04,Self Employed Tailor,Apparel,"tailoring,cutting,measurements,pattern making",4
+OCC05,Craft & Handicraft Maker,Handicrafts,"embroidery,handicraft,bead work",3
+OCC06,Data Entry Operator,IT/ITES,"computer operation,typing,ms office,data entry",4
+OCC07,Office Assistant,IT/ITES,"computer operation,ms office,typing",3
+OCC08,Commercial Vehicle Driver,Transport,"driving",4
+OCC09,Delivery Executive,Transport,"driving,retail sales",3
+OCC10,Construction Mason,Construction,"construction,masonry",4
+OCC11,Electrician (Domestic),Construction,"electrical work",4
+OCC12,Plumber,Construction,"plumbing",4
+OCC13,Retail Sales Associate,Retail,"retail sales",3
+OCC14,Cook/Kitchen Assistant,Hospitality,"cooking",3
+OCC15,Beautician,Beauty & Wellness,"beautician",4
