@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Plus Jakarta Sans", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  --color-tarini-green: #0a5c2b;
+  --color-tarini-green-hover: #074720;
+  --color-tarini-bg: #f4f8f3;
+  --color-tarini-card: #ffffff;
+  --color-tarini-dark: #111827;
+
+  --animate-pulse-halo: haloPulse 2s ease-in-out infinite;
+
+  @keyframes haloPulse {
+    0%, 100% { transform: scale(1); opacity: 0.4; }
+    50% { transform: scale(1.15); opacity: 0.8; }
+  }
+}
+
+/* Base resets for light mint green theme matching PDF screenshots */
+html, body {
+  background-color: #f4f8f3;
+  color: #1a2e22;
+  font-family: "Plus Jakarta Sans", sans-serif;
+  scroll-behavior: smooth;
+}
+
+/* Global scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f4f8f3;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Tariff custom UI cards matching PDF */
+.pdf-card {
+  background-color: #ffffff;
+  border: 1px solid rgba(10, 92, 43, 0.12);
+  border-radius: 1rem;
+  box-shadow: 0 2px 8px -2px rgba(10, 92, 43, 0.05);
+}
+
+.pdf-card-hover {
+  transition: all 0.2s ease-in-out;
+}
+.pdf-card-hover:hover {
+  border-color: rgba(10, 92, 43, 0.3);
+  box-shadow: 0 8px 20px -4px rgba(10, 92, 43, 0.1);
+  transform: translateY(-2px);
+}
+
+.pdf-button-primary {
+  background-color: #0a5c2b;
+  color: #ffffff;
+  font-weight: 600;
+  border-radius: 0.75rem;
+  transition: all 0.2s ease-in-out;
+}
+.pdf-button-primary:hover {
+  background-color: #074720;
+  box-shadow: 0 4px 12px rgba(10, 92, 43, 0.2);
+}

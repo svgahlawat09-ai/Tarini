@@ -1,0 +1,26 @@
+qp_code,job_role,nsqf_level,sector,duration_hours,eligibility,self_employment_possible,mobility_safe
+HSS/Q5101,General Duty Assistant,4,Healthcare Sector Skill Council,900,10th Pass,False,False
+HSS/Q5102,Home Care Assistant,3,Healthcare Sector Skill Council,690,8th Pass,True,True
+HSS/Q5103,General Duty Assistant - Advanced,4.5,Healthcare Sector Skill Council,1200,12th Pass,False,False
+HSS/Q5401,Phlebotomy Technician,4,Healthcare Sector Skill Council,450,12th Pass,False,False
+RAS/Q0104,Retail Sales Associate,3,Retailers Association Skill Council of India,280,10th Pass,False,False
+RAS/Q0201,Retail Store Operations Assistant,1,Retailers Association Skill Council of India,200,8th Pass,False,False
+RAS/Q0102,Retail Cashier,2,Retailers Association Skill Council of India,200,10th Pass,False,False
+AGR/Q1208,Organic Cultivator,3,Agriculture Skill Council of India,200,5th Pass,True,True
+AGR/Q0401,Dairy Farmer,3,Agriculture Skill Council of India,200,8th Pass,True,True
+AGR/Q7803,Mushroom Cultivator,3,Agriculture Skill Council of India,240,8th Pass,True,True
+AGR/Q0801,Micro Irrigation Technician,4,Agriculture Skill Council of India,350,10th Pass,True,True
+CON/Q0102,Assistant Mason,3,Construction Skill Development Council of India,400,5th Pass,True,False
+CON/Q0602,Assistant Electrician,3,Construction Skill Development Council of India,400,10th Pass,True,False
+CON/Q0202,Assistant Plumber,3,Construction Skill Development Council of India,410,8th Pass,True,False
+CON/Q0302,Assistant Bar Bender and Steel Fixer,2,Construction Skill Development Council of India,300,5th Pass,False,False
+SSC/Q2211,Domestic Data Entry Operator,3,IT-ITeS Sector Skill Council (NASSCOM),400,10th Pass,False,True
+SSC/Q0508,CRM Domestic Voice,3,IT-ITeS Sector Skill Council (NASSCOM),400,12th Pass,False,True
+ELE/Q4601,Field Technician - Home Appliances,4,Electronics Sector Skills Council of India,360,8th Pass + ITI,True,True
+ELE/Q8104,Field Technician - Computing and Peripherals,4,Electronics Sector Skills Council of India,360,12th Pass,True,True
+AMH/Q1001,Hand Embroiderer,2,Apparel Made-Ups & Home Furnishing SSC,330,None,True,True
+HCS/Q7301,Traditional Hand Embroiderer (Chikankari & Zardozi),4,Handicrafts and Carpet Sector Skill Council,450,10th Pass,True,True
+AMH/Q0102,Self Employed Tailor,4,Apparel Made-Ups & Home Furnishing SSC,340,8th Pass,True,True
+SEC/Q0101,Unarmed Security Guard,3,Management & Entrepreneurship and Professional Skills Council,160,8th Pass,False,False
+SEC/Q0301,CCTV Supervisor,4,Management & Entrepreneurship and Professional Skills Council,200,12th Pass,False,False
+LOG/Q1201,Warehouse Associate,3,Logistics Sector Skill Council,340,10th Pass,False,False

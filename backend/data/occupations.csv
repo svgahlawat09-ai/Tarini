@@ -1,0 +1,11 @@
+occupation_name,linked_qp_codes,is_traditional_occupation,mobility_safe
+Healthcare Worker,"['HSS/Q5101', 'HSS/Q5102', 'HSS/Q5103']",False,False
+Retail Worker,"['RAS/Q0104']",False,False
+Farmer / Agricultural Worker,"['AGR/Q1208', 'AGR/Q0401']",True,True
+Construction Worker,"['CON/Q0102', 'CON/Q0602']",True,False
+IT / Electronics Technician,"['SSC/Q2211', 'ELE/Q8104']",False,True
+Textile / Handicraft Worker,"['AMH/Q1001', 'HCS/Q7301']",True,True
+Security / Safety Worker,"['SEC/Q0101']",False,False
+Hospitality / Food Service,"['HOS/Q0101']",False,True
+Logistics Worker,"['LOG/Q1201']",False,False
+Traditional Hand Embroiderer (Chikankari & Zari-Zardozi),"['HCS/Q7301']",True,True
