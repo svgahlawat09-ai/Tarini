@@ -36,7 +36,7 @@ def extract_skills(text: str, detected_language: str = "hi") -> dict:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": text},
                 ],
-                model="llama-3.3-70b-versatile",
+                model="openai/gpt-oss-120b",
                 temperature=0.2,
                 response_format={"type": "json_object"},
             )
@@ -121,7 +121,7 @@ def generate_llm_response(text: str, profile: dict, top_occupation_title: str, d
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
-                model="llama-3.3-70b-versatile",
+                model="openai/gpt-oss-120b",
                 temperature=0.4,
             )
             return chat_completion.choices[0].message.content.strip()
