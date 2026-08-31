@@ -9,8 +9,6 @@ export default function Navbar() {
     { to: "/assistant", label: lang === "en" ? "Ask Pipo" : "पीपो से पूछें" },
     { to: "/courses", label: lang === "en" ? "Courses" : "पाठ्यक्रम" },
     { to: "/skill-map", label: lang === "en" ? "Skill Map" : "कौशल मानचित्र" },
-    { to: "/quiz", label: lang === "en" ? "Scenario Quiz" : "अभ्यास प्रश्न" },
-    { to: "/empower", label: lang === "en" ? "Empower" : "सशक्तिकरण" },
     { to: "/profile", label: lang === "en" ? "Profile" : "प्रोफाइल" },
   ];
 

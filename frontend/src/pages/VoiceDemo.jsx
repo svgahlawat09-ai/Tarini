@@ -3,7 +3,7 @@ import { useLanguage } from "../context/LanguageContext";
 import { useNavigate } from "react-router-dom";
 
 export default function VoiceDemo() {
-  const { lang, toggleLanguage } = useLanguage();
+  const { lang } = useLanguage();
   const navigate = useNavigate();
 
   const [isListening, setIsListening] = useState(true);
@@ -55,12 +55,8 @@ export default function VoiceDemo() {
   }
 
   function handlePromptClick(promptText, actionKey) {
-    if (actionKey === "switch") {
-      toggleLanguage();
-      return;
-    }
-
-    setLiveTranscript(promptText);
+    
+setLiveTranscript(promptText);
     setSpeechActive(true);
 
     if (actionKey === "tailoring") {
@@ -128,8 +124,12 @@ export default function VoiceDemo() {
                 </svg>
               </div>
               <div>
-                <p className="font-bold text-slate-900 text-sm">Tell me what work you do</p>
-                <p className="text-xs text-slate-500 mt-0.5">मुझे बताएं कि आप क्या काम करते हैं</p>
+                <p className={`text-sm ${lang === "en" ? "font-bold text-slate-900" : "font-medium text-slate-500"}`}>
+                   Tell me what work you do
+                </p>
+                <p className={`text-xs mt-0.5 ${lang === "hi" ? "font-bold text-slate-900" : "text-slate-500"}`}>
+                   मुझे बताएं कि आप क्या काम करते हैं
+                </p>
               </div>
             </button>
 
@@ -145,8 +145,12 @@ export default function VoiceDemo() {
                 </svg>
               </div>
               <div>
-                <p className="font-bold text-slate-900 text-sm">Help me find a tailoring course</p>
-                <p className="text-xs text-slate-500 mt-0.5">सिलाई कोर्स खोजने में मेरी मदद करें</p>
+                <p className={`text-sm ${lang === "en" ? "font-bold text-slate-900" : "font-medium text-slate-500"}`}>
+                   Help me find a tailoring course
+                </p>
+                <p className={`text-xs mt-0.5 ${lang === "hi" ? "font-bold text-slate-900" : "text-slate-500"}`}>
+                   सिलाई कोर्स खोजने में मेरी मदद करें
+                </p>
               </div>
             </button>
 
@@ -161,26 +165,16 @@ export default function VoiceDemo() {
                 </svg>
               </div>
               <div>
-                <p className="font-bold text-slate-900 text-sm">How do I apply for scheme X?</p>
-                <p className="text-xs text-slate-500 mt-0.5">मैं योजना X के लिए आवेदन कैसे करूं?</p>
+                <p className={`text-sm ${lang === "en" ? "font-bold text-slate-900" : "font-medium text-slate-500"}`}>
+                   How do I apply for scheme X?
+                </p>
+                <p className={`text-xs mt-0.5 ${lang === "hi" ? "font-bold text-slate-900" : "text-slate-500"}`}>
+                   मैं योजना X के लिए आवेदन कैसे करूं?
+                </p>
               </div>
             </button>
 
-            {/* Card 4: Switch to Hindi */}
-            <button
-              onClick={() => handlePromptClick("Switch language", "switch")}
-              className="pdf-card pdf-card-hover p-5 text-left flex items-start gap-4"
-            >
-              <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 text-slate-700">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
-                </svg>
-              </div>
-              <div>
-                <p className="font-bold text-slate-900 text-sm">Switch to Hindi</p>
-                <p className="text-xs text-slate-500 mt-0.5">हिंदी में बदलें</p>
-              </div>
-            </button>
+            
           </div>
         </div>
 
